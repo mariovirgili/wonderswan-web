@@ -1,0 +1,8 @@
+# Keeps the pinned GitHub Actions (commit SHAs) up to date with weekly pull requests;
+# each pull request is built and tested by CI before it can be merged.
+version: 2
+updates:
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
