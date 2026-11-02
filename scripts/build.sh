@@ -5,7 +5,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CORE="$ROOT/.build/beetle-wswan"
 OUT="$ROOT/site"
 # Pin to a publicly documented upstream commit for reproducibility.
-BEETLE_REF="${BEETLE_REF:-4b01295838ea}"
+BEETLE_REF="${BEETLE_REF:-4b01295838ea89e3f1355bbe4cb5cf98aa6108cd}"
 for cmd in git emcc emmake emar make python3 tar; do
   command -v "$cmd" >/dev/null || { echo "Missing: $cmd" >&2; exit 1; }
 done
@@ -13,7 +13,7 @@ mkdir -p "$ROOT/.build" "$OUT/source"
 if [[ ! -d "$CORE/.git" ]]; then
   git clone --no-checkout --filter=blob:none https://github.com/libretro/beetle-wswan-libretro.git "$CORE"
 fi
-( cd "$CORE"; git fetch -q --depth 1 origin "$BEETLE_REF"; git checkout -q --detach FETCH_HEAD )
+( cd "$CORE"; git checkout -q --detach "$BEETLE_REF" )
 echo "Upstream: $(git -C "$CORE" rev-parse HEAD)"
 # The core's own emscripten target emits a static archive, historically named .bc.
 # Include compatibility implementations that are not supplied by a Libretro frontend.
