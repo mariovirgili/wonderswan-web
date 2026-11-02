@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: wonderswan-wasm-build
@@ -42,3 +42,14 @@ jobs:
           path: site/
           retention-days: 7
           if-no-files-found: error
+      - name: Publish built site to the private wasm-build branch
+        if: github.ref == 'refs/heads/main'
+        run: |
+          cd site
+          rm -rf .git
+          git init -q -b wasm-build
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "WASM build of ${GITHUB_SHA::7}"
+          git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" HEAD:wasm-build
