@@ -8,8 +8,10 @@ on:
 permissions:
   contents: write
 
+# A newer push cancels a build in progress; a Pages deployment already started is never cut short
+# (the deploy job has its own concurrency group).
 concurrency:
-  group: wonderswan-wasm-build
+  group: wonderswan-wasm-build-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -39,6 +41,11 @@ jobs:
           node tests/patches_test.js
           SEVENZIP_DIR=.build/7z-wasm/package node tests/archive_test.js
           python3 scripts/verify_build.py .
+      - name: Package the site for GitHub Pages
+        if: github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site/
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
@@ -46,15 +53,36 @@ jobs:
           path: site/
           retention-days: 7
           if-no-files-found: error
-      - name: Publish built site to the wasm-build branch (served by GitHub Pages)
+      # A copy of the built site on a branch, for fetching builds with plain git. GitHub Pages does
+      # NOT use it: pushes made with GITHUB_TOKEN never trigger a Pages build. Pages is deployed by
+      # the deploy job below.
+      - name: Publish built site to the wasm-build branch
         if: github.ref == 'refs/heads/main'
         run: |
           cd site
           rm -rf .git
-          touch .nojekyll   # GitHub Pages: serve the files as they are, no Jekyll
           git init -q -b wasm-build
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add -A
           git commit -q -m "WASM build of ${GITHUB_SHA::7}"
           git push -q -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}" HEAD:wasm-build
+
+  deploy:
+    # Publishes the Pages artifact. Requires Settings -> Pages -> Source: "GitHub Actions".
+    if: github.ref == 'refs/heads/main'
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      pages: write
+      id-token: write
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

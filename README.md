@@ -81,9 +81,11 @@ with `src/bridge.c` into `site/core.wasm` / `core.js`, adds 7-Zip for WebAssembl
 
 ### Continuous integration and the live site
 
-On every push to `main`, [GitHub Actions](.github/workflows/build.yml) builds the core, runs the tests, uploads the
-site as a workflow artifact and force-pushes it to the **`wasm-build`** branch, which GitHub Pages serves. The compiled
-files are never committed to `main`.
+On every push to `main`, [GitHub Actions](.github/workflows/build.yml) builds the core, runs the tests and **deploys
+the site to GitHub Pages** with the official `upload-pages-artifact` / `deploy-pages` actions (Settings → Pages →
+Source: **GitHub Actions**). The same build is kept as a workflow artifact and force-pushed to the `wasm-build`
+branch, so it can also be fetched with plain git; Pages does not use that branch, because pushes made with the
+workflow's `GITHUB_TOKEN` never trigger a Pages build. The compiled files are never committed to `main`.
 
 ### Project layout
 
