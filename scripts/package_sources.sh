@@ -43,10 +43,19 @@ cmp -s "$SZSRC/repo/7zz.wasm" "$SZ/package/7zz.wasm" \
 SZ_SRC_FILE="$(grep -oE '7z[0-9]+-src\.7z' "$SZSRC/repo/Dockerfile" | head -1)"
 [[ -n "$SZ_SRC_FILE" ]] || { echo "Cannot find the 7-Zip source release in 7z-wasm's Dockerfile" >&2; exit 1; }
 mkdir -p "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION"
-git -C "$SZSRC/repo" archive "v$SEVENZIP_VERSION" | tar -x -C "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION"
+git -C "$SZSRC/repo" archive HEAD | tar -x -C "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION"
 # The prebuilt outputs are object code, not source.
 rm -f "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/7zz.wasm" "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/7zz."*.js
-curl -fsSL --retry 3 "https://www.7-zip.org/a/$SZ_SRC_FILE" -o "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/$SZ_SRC_FILE"
+# 7-zip.org keeps only the current release; older ones are on the author's GitHub mirror and SourceForge.
+SZ_DIGITS="$(grep -oE '[0-9]+' <<<"$SZ_SRC_FILE" | head -1)"          # 2409
+SZ_DOTTED="${SZ_DIGITS:0:${#SZ_DIGITS}-2}.${SZ_DIGITS: -2}"           # 24.09
+SZ_SRC_URL=""
+for url in "https://github.com/ip7z/7zip/releases/download/$SZ_DOTTED/$SZ_SRC_FILE" \
+           "https://www.7-zip.org/a/$SZ_SRC_FILE" \
+           "https://downloads.sourceforge.net/project/sevenzip/7-Zip/$SZ_DOTTED/$SZ_SRC_FILE"; do
+  if curl -fsSL --retry 3 "$url" -o "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/$SZ_SRC_FILE"; then SZ_SRC_URL="$url"; break; fi
+done
+[[ -n "$SZ_SRC_URL" ]] || { echo "Cannot download $SZ_SRC_FILE" >&2; exit 1; }
 SZ_SRC_SHA="$(sha256sum "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/$SZ_SRC_FILE" | cut -d' ' -f1)"
 tar -czf "$SRC/7z-wasm-$SEVENZIP_VERSION-source.tar.gz" -C "$SZSRC/pkg" "7z-wasm-$SEVENZIP_VERSION"
 # The full LGPL text, taken from 7-Zip's own source release, next to the binary.
@@ -98,7 +107,7 @@ folder is the complete corresponding source for the parts named, as required by 
    7z-wasm $SEVENZIP_VERSION build files (Dockerfile, build scripts, 7zz-emcc.patch - which adds
    makefile.emcc, pre.js and post.js to the 7-Zip tree)
    at tag v$SEVENZIP_VERSION, commit $SZ_COMMIT, plus the 7-Zip source release it is built from:
-   $SZ_SRC_FILE (sha256 $SZ_SRC_SHA, https://www.7-zip.org/a/$SZ_SRC_FILE).
+   $SZ_SRC_FILE (sha256 $SZ_SRC_SHA, downloaded from $SZ_SRC_URL).
    vendor/7z/7zz.wasm and 7zz.umd.js are the unmodified npm release 7z-wasm@$SEVENZIP_VERSION;
    the build checks that its 7zz.wasm is identical to the one in the tagged repository.
    License: GNU LGPL v2.1 + unRAR restriction (vendor/7z/License.txt, copying-LGPL.txt,
