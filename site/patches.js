@@ -124,6 +124,10 @@ const SwanPatches = (() => {
   }
 
   async function download(entry) {
+    // Only patches stored in the catalog repository are ever fetched.
+    if (typeof entry.url !== 'string' || !entry.url.startsWith(REPO_BASE + 'patches/')) {
+      throw new PatchError('The catalog points outside the patch repository');
+    }
     let cache = null, cached = null;
     try { cache = await caches.open(CACHE_NAME); cached = await cache.match(entry.url); } catch { /* no Cache API */ }
     let bytes = cached ? new Uint8Array(await cached.arrayBuffer()) : null;
@@ -202,7 +206,9 @@ const SwanPatches = (() => {
       ].filter(Boolean).map(t => el('span', { className: 'chip', textContent: t }));
       if (p.latest) chips.unshift(el('span', { className: 'chip new', textContent: 'Latest' }));
       if (p.superseded) chips.push(el('span', { className: 'chip old', textContent: 'Superseded' }));
-      const page = p.page ? el('a', { href: p.page, target: '_blank', rel: 'noopener', textContent: p.source }) : document.createTextNode(p.source);
+      const page = /^https:\/\//.test(p.page || '')
+        ? el('a', { href: p.page, target: '_blank', rel: 'noopener noreferrer', textContent: p.source })
+        : document.createTextNode(p.source || '');
       const radio = el('input', { type: 'radio', name: 'patch', value: String(k), checked: k === 0 });
       list.append(el('label', { className: 'patch-item' }, radio,
         el('span', { className: 'patch-text' },
