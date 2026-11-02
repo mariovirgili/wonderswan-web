@@ -59,7 +59,15 @@ const sorted = P.sortPatches([
   { variant: 'g-nover', source: 'Gand46/BWB', version: null },
   { variant: 'm-new', source: 'mariovirgili/WonderSwanColor-AI_Translation', version: '0.9.10', latest: true },
   { variant: 'm-mid', source: 'mariovirgili/WonderSwanColor-AI_Translation', version: '0.9.9' },
+  { variant: 'g-other-repo', source: 'Gand46/Another', version: '4.9.5' },
 ]).map(p => p.variant);
-assert.deepStrictEqual(sorted, ['m-new', 'm-mid', 'm-old', 'g-new', 'g-old', 'g-nover', 'pk']);
-console.log('ok - mariovirgili first, then other authors; highest version first inside each repo');
+assert.deepStrictEqual(sorted, ['m-new', 'm-mid', 'm-old', 'g-new', 'g-other-repo', 'g-old', 'g-nover', 'pk']);
+console.log('ok - mariovirgili first, then other authors; highest version first inside each author, across repos');
+assert.deepStrictEqual(P.sortPatches([
+  { variant: 'Ring Infinity (Japan) [WonderGate unlock]', source: 'mariovirgili/x', version: '0.9', latest: true },
+  { variant: 'Ring Infinity [T-En v0.9]', source: 'mariovirgili/x', version: '0.9', latest: true },
+  { variant: 'ring-infinity-en-special-1.1', source: 'PokemonGoDB/x', version: '1.1', latest: true },
+  { variant: 'ring-infinity-en-1.1', source: 'PokemonGoDB/x', version: '1.1', latest: true },
+]).map(p => p.variant), ['Ring Infinity [T-En v0.9]', 'Ring Infinity (Japan) [WonderGate unlock]', 'ring-infinity-en-1.1', 'ring-infinity-en-special-1.1']);
+console.log('ok - at equal version the main translation precedes extra editions');
 console.log('all patch tests passed');

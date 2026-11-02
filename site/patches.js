@@ -158,17 +158,20 @@ const SwanPatches = (() => {
   }
   const PREFERRED_OWNER = 'mariovirgili';
   const owner = p => (p.source || '').split('/')[0];
+  // At equal version the main translation comes before its extra editions.
+  const extra = p => (/unlock|debug|special|cheat|trainer|test|extras?\b|stage.?sel|long.?names|wondergate/i.test(p.variant || '') ? 1 : 0);
   /**
-   * Grouped by repository: PREFERRED_OWNER's first, then the other authors alphabetically.
-   * Inside a repository: highest version first (no version last), superseded after current, then by name.
+   * Grouped by author: PREFERRED_OWNER first, then the other authors alphabetically.
+   * Inside an author (across their repositories): highest version first (no version last),
+   * superseded after current, main translation before extra editions, then by repository and name.
    */
   function sortPatches(list) {
     const rank = p => (owner(p).toLowerCase() === PREFERRED_OWNER ? 0 : 1);
     return [...list].sort((a, b) => (rank(a) - rank(b))
       || owner(a).localeCompare(owner(b), undefined, { sensitivity: 'base' })
-      || (a.source || '').localeCompare(b.source || '', undefined, { sensitivity: 'base' })
       || (!a.version - !b.version) || cmpVersion(b.version, a.version)
-      || (!!a.superseded - !!b.superseded) || (!!b.latest - !!a.latest)
+      || (!!a.superseded - !!b.superseded) || (!!b.latest - !!a.latest) || (extra(a) - extra(b))
+      || (a.source || '').localeCompare(b.source || '', undefined, { sensitivity: 'base' })
       || (a.variant || '').localeCompare(b.variant || ''));
   }
 
@@ -185,13 +188,13 @@ const SwanPatches = (() => {
     list.replaceChildren();
     const romName = info.names?.[0] || fileName;
     document.getElementById('patch-rom').textContent = `${romName} · CRC32 ${info.crc32}`;
-    const groups = new Set(patches.map(p => p.source)).size;
+    const authors = new Set(patches.map(owner)).size;
     patches.forEach((p, k) => {
-      if (groups > 1 && (k === 0 || patches[k - 1].source !== p.source)) {
-        const [who, repo] = (p.source || '').split('/');
+      if (authors > 1 && (k === 0 || owner(patches[k - 1]) !== owner(p))) {
+        const n = patches.filter(x => owner(x) === owner(p)).length;
         list.append(el('div', { className: 'patch-group', role: 'presentation' },
-          el('span', { className: 'patch-group-name', textContent: who }),
-          el('span', { className: 'patch-group-repo', textContent: repo || '' })));
+          el('span', { className: 'patch-group-name', textContent: owner(p) }),
+          el('span', { className: 'patch-group-repo', textContent: `${n} patch${n === 1 ? '' : 'es'}` })));
       }
       const chips = [
         p.version && `v${p.version}`, LANGS[p.language] || p.language, p.format?.toUpperCase(),
