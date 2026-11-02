@@ -53,7 +53,7 @@ to load. The ROM inside is then looked up for translation patches as usual.
 
 On every ROM load the emulator computes the ROM's CRC32 and fetches `lookup/crc32/<CRC32>.json` from
 WonderSwan_bps_repo (only those 8 hex digits leave the browser; the ROM never does). If patches are listed, a dialog
-shows them newest first (latest version of each source on top, superseded ones last) with version, language, format
+lists them grouped by repository — mariovirgili's first, then the other authors alphabetically, each repository under its own separator — and, inside each, from the highest version down with version, language, format
 and author. The chosen patch is downloaded, checked against the SHA-256 in the catalog, applied in memory (BPS or IPS;
 BPS also verifies the source and result CRC32s, IPS results are checked when the catalog knows the expected CRC32) and
 the patched ROM is started. Patches are cached with the Cache API. **Play original** (or Esc) skips patching; the

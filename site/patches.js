@@ -156,10 +156,20 @@ const SwanPatches = (() => {
     }
     return 0;
   }
-  /** Newest first: latest of each source, then not superseded, then by version. */
+  const PREFERRED_OWNER = 'mariovirgili';
+  const owner = p => (p.source || '').split('/')[0];
+  /**
+   * Grouped by repository: PREFERRED_OWNER's first, then the other authors alphabetically.
+   * Inside a repository: highest version first (no version last), superseded after current, then by name.
+   */
   function sortPatches(list) {
-    return [...list].sort((a, b) => (!!b.latest - !!a.latest) || (!!a.superseded - !!b.superseded)
-      || cmpVersion(b.version, a.version) || (a.game || '').localeCompare(b.game || '') || (a.variant || '').localeCompare(b.variant || ''));
+    const rank = p => (owner(p).toLowerCase() === PREFERRED_OWNER ? 0 : 1);
+    return [...list].sort((a, b) => (rank(a) - rank(b))
+      || owner(a).localeCompare(owner(b), undefined, { sensitivity: 'base' })
+      || (a.source || '').localeCompare(b.source || '', undefined, { sensitivity: 'base' })
+      || (!a.version - !b.version) || cmpVersion(b.version, a.version)
+      || (!!a.superseded - !!b.superseded) || (!!b.latest - !!a.latest)
+      || (a.variant || '').localeCompare(b.variant || ''));
   }
 
   const el = (tag, props = {}, ...kids) => {
@@ -175,7 +185,14 @@ const SwanPatches = (() => {
     list.replaceChildren();
     const romName = info.names?.[0] || fileName;
     document.getElementById('patch-rom').textContent = `${romName} · CRC32 ${info.crc32}`;
+    const groups = new Set(patches.map(p => p.source)).size;
     patches.forEach((p, k) => {
+      if (groups > 1 && (k === 0 || patches[k - 1].source !== p.source)) {
+        const [who, repo] = (p.source || '').split('/');
+        list.append(el('div', { className: 'patch-group', role: 'presentation' },
+          el('span', { className: 'patch-group-name', textContent: who }),
+          el('span', { className: 'patch-group-repo', textContent: repo || '' })));
+      }
       const chips = [
         p.version && `v${p.version}`, LANGS[p.language] || p.language, p.format?.toUpperCase(),
       ].filter(Boolean).map(t => el('span', { className: 'chip', textContent: t }));
@@ -232,6 +249,6 @@ const SwanPatches = (() => {
     return { bytes, name: `${stem} [${entry.variant}]${ext}`, patch: entry, crc, recognised };
   }
 
-  return { crc32, hex, applyBps, applyIps, apply, lookup, download, sortPatches, cmpVersion, offer, PatchError, REPO_BASE };
+  return { PREFERRED_OWNER, crc32, hex, applyBps, applyIps, apply, lookup, download, sortPatches, cmpVersion, offer, PatchError, REPO_BASE };
 })();
 if (typeof module !== 'undefined') module.exports = SwanPatches;

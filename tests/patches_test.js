@@ -52,11 +52,14 @@ assert.throws(() => P.apply(isrc, ips, { format: 'ips', target_crc32: '00000000'
 console.log('ok - IPS records, RLE, growth, truncation, expected-CRC check');
 
 const sorted = P.sortPatches([
-  { variant: 'old', version: '1.0', superseded: true },
-  { variant: 'b', version: '0.9.10', latest: true },
-  { variant: 'c', version: '0.9.9', latest: true },
-  { variant: 'd', version: '1.1' },
+  { variant: 'g-old', source: 'Gand46/BWB', version: '4.9.0' },
+  { variant: 'pk', source: 'PokemonGoDB/patches', version: '1.1', latest: true },
+  { variant: 'g-new', source: 'Gand46/BWB', version: '5.0.0-test.1', latest: true },
+  { variant: 'm-old', source: 'mariovirgili/WonderSwanColor-AI_Translation', version: '0.9', superseded: true },
+  { variant: 'g-nover', source: 'Gand46/BWB', version: null },
+  { variant: 'm-new', source: 'mariovirgili/WonderSwanColor-AI_Translation', version: '0.9.10', latest: true },
+  { variant: 'm-mid', source: 'mariovirgili/WonderSwanColor-AI_Translation', version: '0.9.9' },
 ]).map(p => p.variant);
-assert.deepStrictEqual(sorted, ['b', 'c', 'd', 'old']);
-console.log('ok - newest first (latest, then version, superseded last)');
+assert.deepStrictEqual(sorted, ['m-new', 'm-mid', 'm-old', 'g-new', 'g-old', 'g-nover', 'pk']);
+console.log('ok - mariovirgili first, then other authors; highest version first inside each repo');
 console.log('all patch tests passed');
