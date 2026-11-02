@@ -1,4 +1,4 @@
-name: Build private WonderSwan WASM prototype
+name: Build WonderSwan AI/MTL Tester
 
 on:
   push:
@@ -39,18 +39,19 @@ jobs:
           node tests/patches_test.js
           SEVENZIP_DIR=.build/7z-wasm/package node tests/archive_test.js
           python3 scripts/verify_build.py .
-      - name: Upload private build artifact
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
           name: wonderswan-wasm-site
           path: site/
           retention-days: 7
           if-no-files-found: error
-      - name: Publish built site to the private wasm-build branch
+      - name: Publish built site to the wasm-build branch (served by GitHub Pages)
         if: github.ref == 'refs/heads/main'
         run: |
           cd site
           rm -rf .git
+          touch .nojekyll   # GitHub Pages: serve the files as they are, no Jekyll
           git init -q -b wasm-build
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
