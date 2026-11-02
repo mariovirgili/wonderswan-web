@@ -23,6 +23,11 @@ fi
 emmake make -C "$CORE" -j"${JOBS:-2}" platform=emscripten CC=emcc CXX=em++ AR=emar
 LIB="$CORE/mednafen_wswan_libretro_emscripten.bc"
 [[ -s "$LIB" ]] || { echo "Core archive not generated: $LIB" >&2; exit 1; }
+# Upstream names the emar archive .bc; modern Emscripten treats that
+# extension as LLVM bitcode rather than a static archive. Link it as .a.
+ARCHIVE="$CORE/libbeetle_wswan.a"
+cp "$LIB" "$ARCHIVE"
+LIB="$ARCHIVE"
 # Prevent stale outputs if linking fails.
 rm -f "$OUT/core.js" "$OUT/core.wasm"
 EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_set_input","_ws_get_video","_ws_get_width","_ws_get_height","_ws_get_audio","_ws_get_audio_frames","_ws_get_sample_rate","_ws_get_fps","_ws_get_save_size","_ws_get_save","_ws_set_save","_ws_reset","_ws_get_state_size","_ws_save_state","_ws_load_state","_ws_shutdown"]'
