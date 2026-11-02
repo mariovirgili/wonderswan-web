@@ -35,7 +35,9 @@ jobs:
         run: |
           node --check site/app.js
           node --check site/patches.js
+          node --check site/archive.js
           node tests/patches_test.js
+          SEVENZIP_DIR=.build/7z-wasm/package node tests/archive_test.js
           python3 scripts/verify_build.py .
       - name: Upload private build artifact
         uses: actions/upload-artifact@v4

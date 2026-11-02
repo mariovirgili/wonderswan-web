@@ -6,7 +6,7 @@ CORE="$ROOT/.build/beetle-wswan"
 OUT="$ROOT/site"
 # Pin to a publicly documented upstream commit for reproducibility.
 BEETLE_REF="${BEETLE_REF:-4b01295838ea89e3f1355bbe4cb5cf98aa6108cd}"
-for cmd in git emcc emmake emar make python3 tar; do
+for cmd in git emcc emmake emar make python3 tar npm; do
   command -v "$cmd" >/dev/null || { echo "Missing: $cmd" >&2; exit 1; }
 done
 mkdir -p "$ROOT/.build" "$OUT/source"
@@ -43,5 +43,11 @@ cp "$CORE/COPYING" "$OUT/COPYING"
 # GPL distribution: include complete corresponding upstream source with the site.
 tar --exclude=.git --exclude='*.o' --exclude='*.bc' --exclude='*.bak' \
   -czf "$OUT/source/beetle-wswan-source.tar.gz" -C "$CORE" .
+# 7-Zip compiled to WebAssembly (LGPL + unRAR restriction) for .7z ROM archives; pinned version.
+SEVENZIP_VERSION="${SEVENZIP_VERSION:-1.2.0}"
+SZ="$ROOT/.build/7z-wasm"
+rm -rf "$SZ" "$OUT/vendor/7z" && mkdir -p "$SZ" "$OUT/vendor/7z"
+( cd "$SZ" && npm pack -q "7z-wasm@$SEVENZIP_VERSION" >/dev/null && tar xzf "7z-wasm-$SEVENZIP_VERSION.tgz" )
+cp "$SZ/package/7zz.umd.js" "$SZ/package/7zz.wasm" "$SZ/package/License.txt" "$SZ/package/unRarLicense.txt" "$OUT/vendor/7z/"
 python3 "$ROOT/scripts/verify_build.py" "$ROOT"
 echo "Build complete: $OUT/core.js / $OUT/core.wasm"

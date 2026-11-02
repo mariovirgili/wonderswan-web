@@ -4,7 +4,7 @@ A browser emulator for testing WonderSwan AI / machine translations: when a ROM 
 [WonderSwan_bps_repo](https://github.com/mariovirgili/WonderSwan_bps_repo) and every matching `.bps` / `.ips`
 translation patch is offered (newest first) and applied on the fly, in memory.
 
-A **no-RetroArch** browser frontend using the actual Beetle WonderSwan (Mednafen) Libretro core, linked as a single Emscripten WebAssembly module. Supports `.ws`, `.wsc`, `.pc2` ROMs, RGB565/0RGB1555/XRGB8888 video, stereo audio, keyboard/touch/gamepad input, SRAM backup/restore, save states, and IndexedDB SRAM autosaving.
+ROMs can be loaded directly or inside `.zip` / `.7z` archives. A **no-RetroArch** browser frontend using the actual Beetle WonderSwan (Mednafen) Libretro core, linked as a single Emscripten WebAssembly module. Supports `.ws`, `.wsc`, `.pc2` ROMs, RGB565/0RGB1555/XRGB8888 video, stereo audio, keyboard/touch/gamepad input, SRAM backup/restore, save states, and IndexedDB SRAM autosaving.
 
 **Status:** Source project and CI workflow are implemented. The WASM binaries are **not** checked in. Building with Emscripten and running an actual ROM remain to be verified. This repository is a buildable candidate, **not** a claim of tested game compatibility.
 
@@ -40,6 +40,14 @@ The build uses the upstream `platform=emscripten` Makefile target to produce a s
 | Rotate pad/screen | Shift | Select |
 
 The hardware has two directional clusters. Some games require the Y cursor; mobile touch controls provide both. The frontend also handles typical gamepads.
+
+## ROM archives
+
+`.zip` and `.7z` files are opened in the browser, in memory. ZIP (stored/deflate) uses the browser's own
+`DecompressionStream`; `.7z`, and ZIP files using other methods, go through 7-Zip compiled to WebAssembly
+([7z-wasm](https://github.com/use-strict/7z-wasm) 1.2.0, GNU LGPL + unRAR restriction), which `scripts/build.sh` copies
+into `site/vendor/7z/` and the page loads only when needed. If an archive holds several ROMs, a dialog asks which one
+to load. The ROM inside is then looked up for translation patches as usual.
 
 ## Translation patches
 

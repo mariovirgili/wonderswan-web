@@ -4,3 +4,4 @@ site/core.wasm
 site/COPYING
 site/source/*.tar.gz
 .DS_Store
+site/vendor/

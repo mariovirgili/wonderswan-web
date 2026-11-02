@@ -12,7 +12,7 @@
  <div class="layout">
  <section class="play-area" aria-label="Emulator">
   <div class="screen-wrap"><canvas id="screen" width="224" height="144" aria-label="WonderSwan screen"></canvas><div id="overlay">LOAD A ROM TO BEGIN</div></div>
-  <div class="toolbar"><label class="primary file-button">Load ROM<input type="file" id="rom" accept=".ws,.wsc,.pc2" hidden></label><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="fullscreen">Fullscreen</button></div>
+  <div class="toolbar"><label class="primary file-button">Load ROM<input type="file" id="rom" accept=".ws,.wsc,.pc2,.zip,.7z" hidden></label><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="fullscreen">Fullscreen</button></div>
   <div class="status"><span id="status">Initializing…</span><span id="fps">—</span></div>
   <div class="touch-controls" aria-label="Touch controls">
    <div class="pads"><div><small>X PAD</small><div class="dpad"><button class="up" data-bit="4">▲</button><button class="left" data-bit="6">◀</button><button class="right" data-bit="7">▶</button><button class="down" data-bit="5">▼</button></div></div><div><small>Y PAD</small><div class="dpad"><button class="up" data-bit="13">▲</button><button class="left" data-bit="10">◀</button><button class="right" data-bit="11">▶</button><button class="down" data-bit="12">▼</button></div></div></div>
@@ -29,7 +29,7 @@
   <hr><h2>Privacy</h2><p>ROMs are opened locally in your browser. This site does not upload them. No ROMs or BIOS are included.</p>
  </aside>
  </div>
- <footer>Experimental standalone Libretro host, without RetroArch. <a href="https://github.com/libretro/beetle-wswan-libretro" target="_blank" rel="noopener">Mednafen / Beetle source</a> · <a href="./COPYING" target="_blank">GPL-2.0</a> · <a href="./source/beetle-wswan-source.tar.gz">Corresponding core source</a></footer>
+ <footer>Experimental standalone Libretro host, without RetroArch. <a href="https://github.com/libretro/beetle-wswan-libretro" target="_blank" rel="noopener">Mednafen / Beetle source</a> · <a href="./COPYING" target="_blank">GPL-2.0</a> · <a href="./source/beetle-wswan-source.tar.gz">Corresponding core source</a> · .7z support: <a href="https://github.com/use-strict/7z-wasm" target="_blank" rel="noopener">7z-wasm</a> (<a href="./vendor/7z/License.txt" target="_blank">7-Zip license</a>)</footer>
 </main>
 <dialog id="patch-dialog" aria-labelledby="patch-title">
  <form method="dialog" class="patch-form">
@@ -40,5 +40,13 @@
   <div class="patch-actions"><button value="original" type="submit">Play original</button><button value="apply" type="submit" class="primary" id="patch-apply">Apply patch and play</button></div>
  </form>
 </dialog>
-<script src="./core.js" defer></script><script src="./patches.js" defer></script><script src="./app.js" defer></script>
+<dialog id="rom-dialog" aria-labelledby="rom-title">
+ <form method="dialog" class="patch-form">
+  <h2 id="rom-title">Choose a ROM</h2>
+  <p id="rom-archive" class="patch-rom"></p>
+  <div id="rom-list" class="patch-list" role="radiogroup" aria-labelledby="rom-title"></div>
+  <div class="patch-actions"><button value="cancel" type="submit">Cancel</button><button value="ok" type="submit" class="primary" id="rom-ok">Load</button></div>
+ </form>
+</dialog>
+<script src="./core.js" defer></script><script src="./archive.js" defer></script><script src="./patches.js" defer></script><script src="./app.js" defer></script>
 </body></html>
