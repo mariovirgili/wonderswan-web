@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0b1020">
+<title>WonderSwan Web — Mednafen</title>
+<link rel="stylesheet" href="./style.css">
+</head>
+<body>
+<main class="shell">
+ <header><div class="tag">STANDALONE WEBASSEMBLY EMULATOR</div><h1>WonderSwan <span>Web</span></h1><p>Beetle / Mednafen · WonderSwan &amp; WonderSwan Color</p></header>
+ <div class="layout">
+ <section class="play-area" aria-label="Emulator">
+  <div class="screen-wrap"><canvas id="screen" width="224" height="144" aria-label="WonderSwan screen"></canvas><div id="overlay">LOAD A ROM TO BEGIN</div></div>
+  <div class="toolbar"><label class="primary file-button">Load ROM<input type="file" id="rom" accept=".ws,.wsc,.pc2" hidden></label><button id="pause" disabled>Pause</button><button id="reset" disabled>Reset</button><button id="fullscreen">Fullscreen</button></div>
+  <div class="status"><span id="status">Initializing…</span><span id="fps">—</span></div>
+  <div class="touch-controls" aria-label="Touch controls">
+   <div class="pads"><div><small>X PAD</small><div class="dpad"><button class="up" data-bit="4">▲</button><button class="left" data-bit="6">◀</button><button class="right" data-bit="7">▶</button><button class="down" data-bit="5">▼</button></div></div><div><small>Y PAD</small><div class="dpad"><button class="up" data-bit="13">▲</button><button class="left" data-bit="10">◀</button><button class="right" data-bit="11">▶</button><button class="down" data-bit="12">▼</button></div></div></div>
+   <div class="action-pad"><button class="bubble" data-bit="0">B</button><button class="bubble" data-bit="8">A</button><div class="small-buttons"><button data-bit="3">Start</button><button data-bit="2">Rotate</button></div></div>
+  </div>
+ </section>
+ <aside class="settings">
+  <h2>Controls</h2><p><b>X pad:</b> Arrow keys<br><b>Y pad:</b> W / A / S / D<br><b>Buttons:</b> X = A · Z = B<br><b>Start:</b> Enter · <b>Rotate:</b> Shift</p>
+  <p>Gamepad: left stick/D-pad controls X pad. Shoulder buttons control Y pad. Start / Select are supported.</p>
+  <hr><h2>Sound</h2><button id="sound" disabled>Enable sound</button><div class="volume"><label for="volume">Volume</label><input id="volume" type="range" min="0" max="100" value="60"></div>
+  <hr><h2>Save data</h2><p>Battery RAM autosaves in this browser. Download a copy if you want a backup.</p><div class="button-grid"><button id="export-save" disabled>Export SRAM</button><label class="button-like">Import SRAM<input id="import-save" type="file" accept=".sav,.srm" hidden></label><button id="export-state" disabled>Save state</button><label class="button-like">Load state<input id="import-state" type="file" accept=".state,.bin" hidden></label></div>
+  <hr><h2>Privacy</h2><p>ROMs are opened locally in your browser. This site does not upload them. No ROMs or BIOS are included.</p>
+ </aside>
+ </div>
+ <footer>Experimental standalone Libretro host, without RetroArch. <a href="https://github.com/libretro/beetle-wswan-libretro" target="_blank" rel="noopener">Mednafen / Beetle source</a> · <a href="./COPYING" target="_blank">GPL-2.0</a> · <a href="./source/beetle-wswan-source.tar.gz">Corresponding core source</a></footer>
+</main>
+<script src="./core.js" defer></script><script src="./app.js" defer></script>
+</body></html>

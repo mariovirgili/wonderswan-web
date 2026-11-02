@@ -1,0 +1,6 @@
+.build/
+site/core.js
+site/core.wasm
+site/COPYING
+site/source/*.tar.gz
+.DS_Store
