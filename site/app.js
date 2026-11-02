@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* Independent HTML5 frontend for Beetle WonderSwan's Libretro ABI.
  * All game content stays in this browser. No RetroArch runtime. */
 'use strict';

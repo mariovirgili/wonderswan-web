@@ -5,3 +5,4 @@ site/COPYING
 site/source/*.tar.gz
 .DS_Store
 site/vendor/
+site/source/

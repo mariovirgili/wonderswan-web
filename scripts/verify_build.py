@@ -15,7 +15,11 @@ for name in ('core.js','core.wasm'):
 if (site/'core.wasm').exists():
     assert (site/'core.wasm').read_bytes()[:4]==b'\x00asm', 'Invalid WASM magic'
     assert (site/'COPYING').exists(), 'Missing GPL license'
-    assert (site/'source/beetle-wswan-source.tar.gz').exists(), 'Missing corresponding source'
+    for f in ('beetle-wswan-source.tar.gz','wonderswan-ai-mtl-tester-source.tar.gz','SOURCES.txt'):
+        assert (site/'source'/f).exists(), f'Missing corresponding source: {f}'
+    assert list((site/'source').glob('7z-wasm-*-source.tar.gz')), 'Missing 7z-wasm corresponding source'
+    assert (site/'vendor/7z/copying-LGPL.txt').exists(), 'Missing LGPL text'
+    assert 'mariovirgili/wonderswan-web' in (site/'source/SOURCES.txt').read_text(), 'Bad SOURCES.txt'
     for f in ('7zz.umd.js','7zz.wasm','License.txt'):
         assert (site/'vendor/7z'/f).exists(), f'Missing 7-Zip file: {f}'
     assert (site/'vendor/7z/7zz.wasm').read_bytes()[:4]==b'\x00asm', 'Invalid 7-Zip WASM'

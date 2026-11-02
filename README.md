@@ -6,7 +6,7 @@ translation patch is offered (newest first) and applied on the fly, in memory.
 
 ROMs can be loaded directly or inside `.zip` / `.7z` archives. A **no-RetroArch** browser frontend using the actual Beetle WonderSwan (Mednafen) Libretro core, linked as a single Emscripten WebAssembly module. Supports `.ws`, `.wsc`, `.pc2` ROMs, RGB565/0RGB1555/XRGB8888 video, stereo audio, keyboard/touch/gamepad input, SRAM backup/restore, save states, and IndexedDB SRAM autosaving.
 
-**Status:** Source project and CI workflow are implemented. The WASM binaries are **not** checked in. Building with Emscripten and running an actual ROM remain to be verified. This repository is a buildable candidate, **not** a claim of tested game compatibility.
+**Status:** builds in CI and runs commercial WonderSwan / WonderSwan Color ROMs (tested with several titles, with and without translation patches). The WASM binaries are not checked in: CI builds them and publishes the site to the `wasm-build` branch.
 
 ## Private development setup
 
@@ -72,11 +72,29 @@ The emulator stores cartridge SRAM in the user's browser's **IndexedDB**, keyed 
 - Audio plays through an AudioWorklet ring buffer (about 60 ms of latency, playback rate gently matched to the emulator); browsers without AudioWorklet fall back to scheduled buffers. Sound starts on a user gesture and the same button turns it off again.
 - Manual rotation uses the core's Select-button behavior. Test portrait titles separately.
 - First build should be smoke-tested with a legal homebrew ROM; a native build does not guarantee successful WASM runtime.
-- WebAssembly `.wasm` and `.js` aren't included in this source-only ZIP because Emscripten was not installed in the author's execution environment; CI generates them.
 
 ## Source, license and attribution
 
-The emulator engine is [libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro), a fork of Mednafen WonderSwan, under **GPL-2.0** (see upstream `COPYING`). The project bridge/front end are distributed under GPL-2.0 as a combined program. The build **distributes a copy of upstream corresponding source code and its COPYING file** in the published site. Keep those files and the build scripts available when distributing compiled binaries. Third-party trademarks are used for identification only; no BIOS or ROMs are distributed.
+This project (the bridge in `src/`, the web frontend in `site/`, the build scripts and tests) is free software under the
+**GNU GPL v2** ([`LICENSE`](LICENSE)). The emulator engine is
+[libretro/beetle-wswan-libretro](https://github.com/libretro/beetle-wswan-libretro), a fork of Mednafen WonderSwan,
+also **GPL-2.0**; `core.wasm` links the two into one program. `.7z` support uses
+[7z-wasm](https://github.com/use-strict/7z-wasm), 7-Zip compiled to WebAssembly, under the **GNU LGPL v2.1 + unRAR
+restriction**, shipped unmodified as a separate file.
+
+Every build carries the complete corresponding source of what it ships, in `site/source/`
+(`scripts/package_sources.sh`):
+
+| File | Contents |
+| --- | --- |
+| `wonderswan-ai-mtl-tester-source.tar.gz` | this repository at the exact commit built (plus any uncommitted changes to tracked files, for local builds) |
+| `beetle-wswan-source.tar.gz` | Beetle at the pinned commit, exactly as compiled |
+| `7z-wasm-1.2.0-source.tar.gz` | 7z-wasm's build files at tag v1.2.0 and the 7-Zip source release they build (`7z2409-src.7z`); the build checks that the shipped `7zz.wasm` is the one from that tag |
+| `SOURCES.txt` | commits, toolchain version, SHA-256 of every archive and binary, rebuild notes |
+
+The page footer links all of them, together with `COPYING` (GPL v2) and the 7-Zip license files in `vendor/7z/`
+(`License.txt`, `copying-LGPL.txt`, `unRarLicense.txt`). Anyone redistributing the built site must keep these files
+with it. Third-party trademarks are used for identification only; no BIOS or ROMs are distributed.
 
 ## Troubleshooting
 

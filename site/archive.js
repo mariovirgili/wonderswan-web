@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* ROMs inside .zip and .7z archives.
  *
  * ZIP is read here: central directory + stored/deflate entries, inflated with

@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: GPL-2.0-only
 /* Translation patches for the ROM being loaded.
  *
  * The ROM's CRC32 is looked up in mariovirgili/WonderSwan_bps_repo
