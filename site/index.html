@@ -3,12 +3,12 @@
 <head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="theme-color" content="#0b1020">
-<title>WonderSwan Web — Mednafen</title>
+<title>WonderSwan AI/MTL Tester</title>
 <link rel="stylesheet" href="./style.css">
 </head>
 <body>
 <main class="shell">
- <header><div class="tag">STANDALONE WEBASSEMBLY EMULATOR</div><h1>WonderSwan <span>Web</span></h1><p>Beetle / Mednafen · WonderSwan &amp; WonderSwan Color</p></header>
+ <header><div class="tag">STANDALONE WEBASSEMBLY EMULATOR</div><h1>WonderSwan <span>AI/MTL Tester</span></h1><p>Beetle / Mednafen · WonderSwan &amp; WonderSwan Color · translation patches applied on the fly</p></header>
  <div class="layout">
  <section class="play-area" aria-label="Emulator">
   <div class="screen-wrap"><canvas id="screen" width="224" height="144" aria-label="WonderSwan screen"></canvas><div id="overlay">LOAD A ROM TO BEGIN</div></div>
@@ -23,12 +23,22 @@
   <h2>Controls</h2><p><b>X pad:</b> Arrow keys<br><b>Y pad:</b> W / A / S / D<br><b>Buttons:</b> X = A · Z = B<br><b>Start:</b> Enter · <b>Rotate:</b> Shift</p>
   <p>Gamepad: left stick/D-pad controls X pad. Shoulder buttons control Y pad. Start / Select are supported.</p>
   <hr><h2>Sound</h2><button id="sound" aria-pressed="false" disabled>Enable sound</button><div class="volume"><label for="volume">Volume</label><input id="volume" type="range" min="0" max="100" value="60"></div>
-  <hr><h2>Options</h2><label class="check"><input type="checkbox" id="opt-60hz" checked> 60 Hz mode</label><p class="hint">Smoother motion on 60 Hz screens: the core shows 4 of every 5 frames. Turn off for native 75.47 Hz timing.</p>
+  <hr><h2>Options</h2><label class="check"><input type="checkbox" id="opt-patches" checked> Offer translation patches</label><p class="hint">When a ROM is loaded, its CRC32 is looked up in the <a href="https://github.com/mariovirgili/WonderSwan_bps_repo" target="_blank" rel="noopener">patch catalog</a>; matching .bps/.ips patches are offered, newest first, and applied in memory.</p>
+  <label class="check"><input type="checkbox" id="opt-60hz" checked> 60 Hz mode</label><p class="hint">Smoother motion on 60 Hz screens: the core shows 4 of every 5 frames. Turn off for native 75.47 Hz timing.</p>
   <hr><h2>Save data</h2><p>Battery RAM autosaves in this browser. Download a copy if you want a backup.</p><div class="button-grid"><button id="export-save" disabled>Export SRAM</button><label class="button-like">Import SRAM<input id="import-save" type="file" accept=".sav,.srm" hidden></label><button id="export-state" disabled>Save state</button><label class="button-like">Load state<input id="import-state" type="file" accept=".state,.bin" hidden></label></div>
   <hr><h2>Privacy</h2><p>ROMs are opened locally in your browser. This site does not upload them. No ROMs or BIOS are included.</p>
  </aside>
  </div>
  <footer>Experimental standalone Libretro host, without RetroArch. <a href="https://github.com/libretro/beetle-wswan-libretro" target="_blank" rel="noopener">Mednafen / Beetle source</a> · <a href="./COPYING" target="_blank">GPL-2.0</a> · <a href="./source/beetle-wswan-source.tar.gz">Corresponding core source</a></footer>
 </main>
-<script src="./core.js" defer></script><script src="./app.js" defer></script>
+<dialog id="patch-dialog" aria-labelledby="patch-title">
+ <form method="dialog" class="patch-form">
+  <h2 id="patch-title">Translation patches available</h2>
+  <p id="patch-rom" class="patch-rom"></p>
+  <p id="patch-count" class="hint"></p>
+  <div id="patch-list" class="patch-list" role="radiogroup" aria-labelledby="patch-title"></div>
+  <div class="patch-actions"><button value="original" type="submit">Play original</button><button value="apply" type="submit" class="primary" id="patch-apply">Apply patch and play</button></div>
+ </form>
+</dialog>
+<script src="./core.js" defer></script><script src="./patches.js" defer></script><script src="./app.js" defer></script>
 </body></html>

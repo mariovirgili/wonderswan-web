@@ -1,4 +1,8 @@
-# WonderSwan Web — standalone Mednafen / Beetle WASM
+# WonderSwan AI/MTL Tester — standalone Mednafen / Beetle WASM
+
+A browser emulator for testing WonderSwan AI / machine translations: when a ROM is loaded, its CRC32 is looked up in
+[WonderSwan_bps_repo](https://github.com/mariovirgili/WonderSwan_bps_repo) and every matching `.bps` / `.ips`
+translation patch is offered (newest first) and applied on the fly, in memory.
 
 A **no-RetroArch** browser frontend using the actual Beetle WonderSwan (Mednafen) Libretro core, linked as a single Emscripten WebAssembly module. Supports `.ws`, `.wsc`, `.pc2` ROMs, RGB565/0RGB1555/XRGB8888 video, stereo audio, keyboard/touch/gamepad input, SRAM backup/restore, save states, and IndexedDB SRAM autosaving.
 
@@ -36,6 +40,17 @@ The build uses the upstream `platform=emscripten` Makefile target to produce a s
 | Rotate pad/screen | Shift | Select |
 
 The hardware has two directional clusters. Some games require the Y cursor; mobile touch controls provide both. The frontend also handles typical gamepads.
+
+## Translation patches
+
+On every ROM load the emulator computes the ROM's CRC32 and fetches `lookup/crc32/<CRC32>.json` from
+WonderSwan_bps_repo (only those 8 hex digits leave the browser; the ROM never does). If patches are listed, a dialog
+shows them newest first (latest version of each source on top, superseded ones last) with version, language, format
+and author. The chosen patch is downloaded, checked against the SHA-256 in the catalog, applied in memory (BPS or IPS;
+BPS also verifies the source and result CRC32s, IPS results are checked when the catalog knows the expected CRC32) and
+the patched ROM is started. Patches are cached with the Cache API. **Play original** (or Esc) skips patching; the
+**Offer translation patches** option turns the lookup off. Battery saves are keyed by the SHA-256 of the ROM actually
+running, so each patch keeps its own saves.
 
 ## Save format and behavior
 

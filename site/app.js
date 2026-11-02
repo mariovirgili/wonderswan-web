@@ -76,7 +76,17 @@ function openDB(){return new Promise((resolve,reject)=>{if(!indexedDB){resolve(n
 async function store(key,bytes){if(!key||!bytes?.length)return;const db=await openDB();if(!db)return;await new Promise((resolve,reject)=>{const tx=db.transaction('sram','readwrite');tx.objectStore('sram').put(bytes,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();}
 async function retrieve(key){const db=await openDB();if(!db)return null;const data=await new Promise((resolve,reject)=>{const tx=db.transaction('sram');const req=tx.objectStore('sram').get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)});db.close();return data;}
 async function persistRam(){if(!romLoaded||!romKey)return;const n=api.saveSize(),ptr=api.save();if(n&&ptr){const bytes=copyOut(ptr,n);await store(romKey,bytes);}}
-async function loadRom(file){if(!file||!api)return;if(!/\.(ws|wsc|pc2)$/i.test(file.name)){message('Unsupported file extension');return;}try{paused=true;await persistRam();if(romLoaded)api.unload();romLoaded=false;clearInput();enabled(false);const bytes=new Uint8Array(await file.arrayBuffer());romKey=await digest(bytes);romName=file.name;const ok=allocateBytes(bytes,(ptr,n)=>api.load(ptr,n));if(!ok)throw Error('Core rejected the ROM');romLoaded=true;const saved=await retrieve(romKey);if(saved&&saved.length===api.saveSize()){allocateBytes(saved,(ptr,n)=>api.setSave(ptr,n));message(`Loaded ${romName} · battery save restored`);}else message(`Loaded ${romName}`);enabled(true);paused=false;$('pause').textContent='Pause';bank=0;nextAudioTime=0;audioNode?.port.postMessage('reset');overlay.hidden=true;}catch(e){console.error(e);message('Could not load ROM: '+e.message);}}
+async function loadRom(file){if(!file||!api)return;if(!/\.(ws|wsc|pc2)$/i.test(file.name)){message('Unsupported file extension');return;}
+ const wasPaused=paused;try{paused=true;clearInput();let bytes=new Uint8Array(await file.arrayBuffer());let name=file.name,patchNote='';
+  if(pref('patches','1')==='1'&&window.SwanPatches){try{const r=await SwanPatches.offer(bytes,file.name,message);bytes=r.bytes;name=r.name;
+    if(r.patch)patchNote=` · patched with ${r.patch.variant}${r.patch.version?' v'+r.patch.version:''}`;
+    else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;}
+   catch(e){console.error(e);patchNote=` · PATCH FAILED (${e.message}), running the original ROM`;}}
+  await persistRam();if(romLoaded)api.unload();romLoaded=false;enabled(false);
+  romKey=await digest(bytes);romName=name;const ok=allocateBytes(bytes,(ptr,n)=>api.load(ptr,n));if(!ok)throw Error('Core rejected the ROM');romLoaded=true;
+  const saved=await retrieve(romKey);if(saved&&saved.length===api.saveSize()){allocateBytes(saved,(ptr,n)=>api.setSave(ptr,n));message(`Loaded ${romName}${patchNote} · battery save restored`);}else message(`Loaded ${romName}${patchNote}`);
+  enabled(true);paused=false;$('pause').textContent='Pause';bank=0;nextAudioTime=0;audioNode?.port.postMessage('reset');overlay.hidden=true;}
+ catch(e){console.error(e);paused=wasPaused;message('Could not load ROM: '+e.message);}}
 function download(bytes,name){if(!bytes?.length){message('No data available to export');return;}const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function stem(){return romName.replace(/\.[^.]+$/,'')||'wonderswan';}
 $('rom').addEventListener('change',e=>{loadRom(e.target.files[0]);e.target.value='';});
@@ -88,7 +98,7 @@ $('export-save').onclick=()=>download(copyOut(api.save(),api.saveSize()),stem()+
 $('import-save').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());if(allocateBytes(b,(ptr,n)=>api.setSave(ptr,n))){message('SRAM imported');await persistRam();}else message(`SRAM size mismatch; expected ${api.saveSize()} bytes`);}e.target.value='';};
 $('export-state').onclick=()=>{const n=api.stateSize();if(!n){message('States unavailable');return;}const ptr=wasm._malloc(n);try{if(api.saveState(ptr,n))download(copyOut(ptr,n),stem()+'.state');else message('State save failed');}finally{wasm._free(ptr);}};
 $('import-state').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());try{const ok=allocateBytes(b,(ptr,n)=>api.loadState(ptr,n));message(ok?'State restored':'State rejected (different ROM/core?)');}catch(err){message(err.message)}}e.target.value='';};
-window.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName))return;const b=keyMap[e.code];if(b!==undefined){if(romLoaded)e.preventDefault();if(!e.repeat)press(b);}});
+window.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)||document.querySelector('dialog[open]'))return;const b=keyMap[e.code];if(b!==undefined){if(romLoaded)e.preventDefault();if(!e.repeat)press(b);}});
 window.addEventListener('keyup',e=>{const b=keyMap[e.code];if(b!==undefined)release(b);});
 window.addEventListener('blur',clearInput);
 for(const button of document.querySelectorAll('[data-bit]')){const b=Number(button.dataset.bit);const down=e=>{e.preventDefault();button.setPointerCapture?.(e.pointerId);press(b);button.classList.add('pressed');};const up=e=>{e.preventDefault();release(b);button.classList.remove('pressed');};button.addEventListener('pointerdown',down);button.addEventListener('pointerup',up);button.addEventListener('pointercancel',up);button.addEventListener('lostpointercapture',up);}
@@ -98,6 +108,7 @@ window.addEventListener('pagehide',()=>{persistRam().catch(()=>{});});
  * frames, audio kept continuous) so motion is even on 60 Hz displays. */
 function pref(key,fallback){try{return localStorage.getItem('swanweb.'+key)??fallback}catch{return fallback}}
 function savePref(key,value){try{localStorage.setItem('swanweb.'+key,value)}catch{}}
-function applyOptions(){if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}
+function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}
+$('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
 $('opt-60hz').onchange=e=>{savePref('60hz',e.target.checked?'1':'0');applyOptions();bank=0;message(e.target.checked?'60 Hz mode on':'Native 75 Hz mode');};
 requestAnimationFrame(loop);startup();
