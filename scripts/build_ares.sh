@@ -37,7 +37,9 @@ sed -e 's/@ARES_NAME@/ares/' -e 's/@ARES_VERSION@/web/' \
 # Compile. The WonderSwan core and its two shared components (the V30MZ CPU and the
 # 93LCxx EEPROM) are each one translation unit, as in ares' own unity build.
 rm -rf "$OBJ" && mkdir -p "$OBJ"
-CXXFLAGS=(-std=c++20 -O3 -DPROFILE_PERFORMANCE -w -I"$SRC" -I"$SRC/ares" -I"$SRC/nall" -I"$SRC/thirdparty" -I"$SRC/libco")
+# -Wno-c++11-narrowing: ares builds std::span from 64-bit sizes; on wasm32 size_t is 32 bits
+# (the WonderSwan's memories are at most a few MB, so nothing is lost).
+CXXFLAGS=(-std=c++20 -O3 -DPROFILE_PERFORMANCE -w -Wno-c++11-narrowing -I"$SRC" -I"$SRC/ares" -I"$SRC/nall" -I"$SRC/thirdparty" -I"$SRC/libco")
 UNITS=(
   "$SRC/ares/ares/ares.cpp"
   "$SRC/ares/component/processor/v30mz/v30mz.cpp"
