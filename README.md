@@ -46,7 +46,7 @@ The emulator stores cartridge SRAM in the user's browser's **IndexedDB**, keyed 
 - Uses Beetle/Mednafen's actual emulation routines; does not attempt to emulate hardware in JavaScript.
 - Display uses nearest-neighbor pixel scaling and keeps RGB565 pixel values.
 - It has no ROM database, cheats, link-cable emulation, or cloud saves.
-- Audio playback is Web Audio and needs a user gesture to start.
+- Audio plays through an AudioWorklet ring buffer (about 60 ms of latency, playback rate gently matched to the emulator); browsers without AudioWorklet fall back to scheduled buffers. Sound starts on a user gesture and the same button turns it off again.
 - Manual rotation uses the core's Select-button behavior. Test portrait titles separately.
 - First build should be smoke-tested with a legal homebrew ROM; a native build does not guarantee successful WASM runtime.
 - WebAssembly `.wasm` and `.js` aren't included in this source-only ZIP because Emscripten was not installed in the author's execution environment; CI generates them.
@@ -60,5 +60,5 @@ The emulator engine is [libretro/beetle-wswan-libretro](https://github.com/libre
 - `Core unavailable: core.js is missing`: run GitHub Actions or build with Emscripten; GitHub Pages won't compile the C code itself.
 - `Module failed to compile`: check the GitHub Actions log and `core.wasm` publishing; don't rename generated artifacts.
 - Blank game screen: verify file extension and ROM header, view browser console, check console model and rotation.
-- No sound: press **Enable sound**.
+- No sound: press **Enable sound** (press it again — **Disable sound** — to mute).
 - This project has not yet passed browser-based compatibility testing with actual games; issues can be reported after the first compiled build.
