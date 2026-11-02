@@ -47,6 +47,7 @@ size_t ws_get_save_size(void),ws_get_state_size(void);
 const void* ws_get_save(void);
 int ws_set_save(const void*,size_t),ws_save_state(void*,size_t),ws_load_state(const void*,size_t);
 void ws_shutdown(void);
+int ws_set_option(const char*,const char*);
 int main(void){
   assert(ws_init());
   int format=0;
@@ -65,6 +66,17 @@ int main(void){
   assert(ws_get_save_size()==16 && ws_set_save(v,16) && ((const uint8_t *)ws_get_save())[4]==42);
   assert(ws_get_state_size()==3);
   char state[3];assert(ws_save_state(state,3) && ws_load_state(state,3));
+  /* core options */
+  struct retro_variable var={"wswan_60hz_mode",NULL};
+  bool upd=true; assert(env(17,&upd) && !upd);
+  assert(!env(15,&var) && var.value==NULL);
+  assert(ws_set_option("wswan_60hz_mode","enabled"));
+  assert(env(17,&upd) && upd); assert(env(17,&upd) && !upd);
+  assert(env(15,&var) && !strcmp(var.value,"enabled"));
+  assert(ws_set_option("wswan_60hz_mode","disabled") && env(15,&var) && !strcmp(var.value,"disabled"));
+  assert(ws_set_option("wswan_60hz_mode","") && !env(15,&var));
+  struct retro_system_av_info av={0}; av.timing.fps=60.38; av.timing.sample_rate=44100;
+  assert(env(32,&av) && ws_get_fps()==60.38 && ws_get_sample_rate()==44100.0);
   format=2;assert(env(10,&format));
   ws_run(); /* Mock buffer is 1555: test runtime returns a valid frame. */
   ws_unload(); ws_shutdown();

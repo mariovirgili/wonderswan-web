@@ -16,6 +16,19 @@ static double fps=75.47, sample_rate=44100.0;
 static bool started, loaded;
 static uint8_t *loaded_rom;
 
+/* Core options (libretro variables) set from JavaScript. Keys not set here
+ * fall back to the core's own defaults. */
+#define MAX_OPTS 32
+#define OPT_LEN 64
+static struct { char key[OPT_LEN], value[OPT_LEN]; } opts[MAX_OPTS];
+static int n_opts;
+static bool opts_dirty;
+
+static void apply_av(const struct retro_system_av_info *av) {
+  if(av->timing.fps>30 && av->timing.fps<200) fps=av->timing.fps;
+  if(av->timing.sample_rate>8000 && av->timing.sample_rate<192001) sample_rate=av->timing.sample_rate;
+}
+
 static bool environment(unsigned cmd,void *data) {
   switch(cmd) {
     case RETRO_ENVIRONMENT_SET_PIXEL_FORMAT:
@@ -27,11 +40,20 @@ static bool environment(unsigned cmd,void *data) {
       if(data) *(bool *)data=true;
       return true;
     case RETRO_ENVIRONMENT_GET_VARIABLE_UPDATE:
-      if(data) *(bool *)data=false;
+      if(data) *(bool *)data=opts_dirty;
+      opts_dirty=false;
       return true;
-    case RETRO_ENVIRONMENT_GET_VARIABLE:
-      /* Return no overrides: the core's own documented defaults apply. */
-      return false;
+    case RETRO_ENVIRONMENT_GET_VARIABLE: {
+      struct retro_variable *v=(struct retro_variable *)data;
+      if(!v || !v->key) return false;
+      for(int i=0;i<n_opts;i++)
+        if(!strcmp(opts[i].key,v->key)) { v->value=opts[i].value; return true; }
+      v->value=NULL;
+      return false; /* unset: the core's own default applies */
+    }
+    case RETRO_ENVIRONMENT_SET_SYSTEM_AV_INFO:
+      if(data) apply_av((const struct retro_system_av_info *)data);
+      return true;
     case RETRO_ENVIRONMENT_GET_LANGUAGE:
       if(data) *(unsigned*)data=0; /* English */
       return true;
@@ -117,8 +139,7 @@ int ws_load(const void *data,size_t size) {
   loaded=true;
   struct retro_system_av_info av;
   memset(&av,0,sizeof(av));retro_get_system_av_info(&av);
-  if(av.timing.fps>30 && av.timing.fps<200) fps=av.timing.fps;
-  if(av.timing.sample_rate>8000 && av.timing.sample_rate<192001) sample_rate=av.timing.sample_rate;
+  apply_av(&av);
   audio_frames=0;
   return 1;
 }
@@ -142,4 +163,19 @@ int ws_set_save(const void *buffer,size_t size) {
 size_t ws_get_state_size(void){return loaded?retro_serialize_size():0;}
 int ws_save_state(void *ptr,size_t n){return loaded&&ptr&&retro_serialize(ptr,n);}
 int ws_load_state(const void *ptr,size_t n){return loaded&&ptr&&retro_unserialize(ptr,n);}
+/* Set (or, with an empty/NULL value, clear) a core option. Options read only
+ * at content load (e.g. owner profile) take effect on the next ws_load. */
+int ws_set_option(const char *key,const char *value) {
+  if(!key || !*key || strlen(key)>=OPT_LEN || (value && strlen(value)>=OPT_LEN)) return 0;
+  int i;
+  for(i=0;i<n_opts;i++) if(!strcmp(opts[i].key,key)) break;
+  if(!value || !*value) {
+    if(i<n_opts) { opts[i]=opts[--n_opts]; opts_dirty=true; }
+    return 1;
+  }
+  if(i==n_opts) { if(n_opts>=MAX_OPTS) return 0; strcpy(opts[n_opts++].key,key); }
+  strcpy(opts[i].value,value);
+  opts_dirty=true;
+  return 1;
+}
 void ws_shutdown(void){ws_unload();if(started){retro_deinit();started=false;}}

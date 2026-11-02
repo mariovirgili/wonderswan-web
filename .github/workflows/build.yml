@@ -25,6 +25,10 @@ jobs:
         run: |
           emcc --version
           emar --version
+      - name: Bridge ABI test (mock core, native gcc)
+        run: |
+          gcc -Wall -O1 -fsanitize=address,undefined scripts/mock_core_test.c src/bridge.c -o mock_core_test
+          ./mock_core_test
       - name: Build linked Mednafen WASM
         run: bash scripts/build.sh
       - name: Verify output and JS
