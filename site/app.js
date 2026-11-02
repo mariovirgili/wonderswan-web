@@ -1,12 +1,17 @@
 // SPDX-License-Identifier: GPL-2.0-only
-/* Independent HTML5 frontend for Beetle WonderSwan's Libretro ABI.
- * All game content stays in this browser. No RetroArch runtime. */
+/* Independent HTML5 frontend for two WonderSwan emulator cores compiled to
+ * WebAssembly: Beetle WonderSwan (Mednafen, libretro ABI) and ares. Both export
+ * the same small ws_* C API, so the page can switch between them, keeping the
+ * running game. All game content stays in this browser. No RetroArch runtime. */
 'use strict';
 const $=id=>document.getElementById(id);
 const canvas=$('screen'),ctx=canvas.getContext('2d',{alpha:false});
 ctx.imageSmoothingEnabled=false;
 const overlay=$('overlay'), status=$('status');
 let wasm=null, api=null, running=false, paused=false, romName='', romKey='', romLoaded=false;
+/* The emulator cores. Each is loaded the first time it is chosen and kept. */
+const CORES={beetle:{label:'Mednafen',script:'./core.js',factory:'createWonderSwan'},ares:{label:'ares',script:'./core-ares.js',factory:'createAres'}};
+const instances={};let coreName='',coreBusy=false,current=null;// current: the running game {bytes,name,note}
 let frameDuration=1000/75.47, lastFrame=0, bank=0, buttons=0, gamepadBits=0;
 let audioContext=null, nextAudioTime=0, volume=.6, lastAutosave=0;
 let audioGain=null, audioNode=null, soundOn=false, workletRate=0;
@@ -25,8 +30,24 @@ function enabled(v){for(const id of ['pause','reset','sound','export-save','expo
 function drawWelcome(){ctx.fillStyle='#10192d';ctx.fillRect(0,0,224,144);ctx.strokeStyle='#2a4474';for(let i=0;i<224;i+=16){ctx.beginPath();ctx.moveTo(i,0);ctx.lineTo(i,144);ctx.stroke()}for(let i=0;i<144;i+=16){ctx.beginPath();ctx.moveTo(0,i);ctx.lineTo(224,i);ctx.stroke()}}
 drawWelcome();
 function bindApi(m){const c=(name,ret,args)=>m.cwrap(name,ret,args);return{
+ prepare:m._ws_prepare_state?c('ws_prepare_state',null,[]):()=>{},
  init:c('ws_init','number',[]),load:c('ws_load','number',['number','number']),unload:c('ws_unload',null,[]),run:c('ws_run',null,[]),input:c('ws_set_input',null,['number']),width:c('ws_get_width','number',[]),height:c('ws_get_height','number',[]),video:c('ws_get_video','number',[]),audio:c('ws_get_audio','number',[]),frames:c('ws_get_audio_frames','number',[]),rate:c('ws_get_sample_rate','number',[]),fps:c('ws_get_fps','number',[]),reset:c('ws_reset',null,[]),saveSize:c('ws_get_save_size','number',[]),save:c('ws_get_save','number',[]),setSave:c('ws_set_save','number',['number','number']),stateSize:c('ws_get_state_size','number',[]),saveState:c('ws_save_state','number',['number','number']),loadState:c('ws_load_state','number',['number','number']),setOption:c('ws_set_option','number',['string','string'])};}
-async function startup(){try{if(typeof createWonderSwan!=='function')throw Error('core.js is missing. Build the project with Emscripten first.');message('Loading Mednafen WASM…');wasm=await createWonderSwan({locateFile:path=>'./'+path,printErr:console.error});api=bindApi(wasm);api.init();applyOptions();message('Mednafen core ready. Choose a .ws, .wsc or .pc2 ROM, or a .zip / .7z containing one.');}catch(e){console.error(e);message('Core unavailable: '+e.message);overlay.textContent='BUILD THE WASM CORE FIRST';}}
+function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error(src.slice(2)+' is missing. Build the project with Emscripten first.'));document.head.append(s);});}
+async function coreInstance(name){if(instances[name])return instances[name];const c=CORES[name];
+ if(typeof window[c.factory]!=='function')await loadScript(c.script);
+ const m=await window[c.factory]({locateFile:path=>'./'+path,printErr:console.error});const a=bindApi(m);a.init();return instances[name]={wasm:m,api:a};}
+function showCore(name){for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const ares=name==='ares';$('opt-60hz').disabled=ares;$('opt-60hz-note').hidden=!ares;}
+/* Switch emulator core. A running game moves to the new core with its battery save. */
+async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCore(coreName);return;}coreBusy=true;const wasPaused=paused;paused=true;
+ try{message(`Loading ${CORES[name].label} WASM…`);const next=await coreInstance(name);
+  if(romLoaded){await persistRam();api.unload();romLoaded=false;enabled(false);}
+  ({wasm,api}=next);coreName=name;savePref('core',name);showCore(name);applyOptions();
+  if(current){try{await startRom(current.bytes,current.name,current.note);paused=wasPaused;$('pause').textContent=paused?'Resume':'Pause';}
+   catch(e){console.warn(e);current=null;overlay.hidden=false;message(`${CORES[name].label} core ready. It could not run the previous game (${e.message}); choose a ROM.`);}}
+  else message(`${CORES[name].label} core ready. Choose a .ws, .wsc or .pc2 ROM, or a .zip / .7z containing one.`);}
+ catch(e){console.error(e);message(`${CORES[name].label} core unavailable: ${e.message}`);showCore(coreName);if(!api)overlay.textContent='BUILD THE WASM CORE FIRST';paused=wasPaused;}
+ finally{coreBusy=false;}}
+function startup(){const q=new URLSearchParams(location.search).get('core');const name=CORES[q]?q:(CORES[pref('core','beetle')]?pref('core','beetle'):'beetle');showCore(name);useCore(name);}
 function render(){const w=api.width(),h=api.height();if(!w||!h||w>512||h>512)return;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.classList.toggle('portrait',h>w);ctx.imageSmoothingEnabled=false;}const n=w*h*4,ptr=api.video();if(!ptr||ptr+n>wasm.HEAPU8.byteLength)return;const pixels=new Uint8ClampedArray(wasm.HEAPU8.buffer,ptr,n);ctx.putImageData(new ImageData(new Uint8ClampedArray(pixels),w,h),0,0);}
 /* Audio: the core's samples go to an AudioWorklet ring buffer that plays them
  * on the audio clock. The worklet keeps ~60 ms queued and nudges its playback
@@ -82,7 +103,7 @@ function pickRom(archiveName,roms){const dlg=$('rom-dialog'),list=$('rom-list');
  roms.forEach((r,k)=>{const l=document.createElement('label');l.className='patch-item';const i=document.createElement('input');i.type='radio';i.name='rom';i.value=String(k);i.checked=k===0;
   const t=document.createElement('span');t.className='patch-text';const s=document.createElement('strong');s.textContent=r.name.split('/').pop();const v=document.createElement('span');v.className='patch-variant';v.textContent=`${r.name} · ${(r.bytes.length/1024).toLocaleString()} KB`;t.append(s,v);l.append(i,t);list.append(l);});
  return new Promise(res=>{dlg.addEventListener('close',()=>{const c=list.querySelector('input[name=rom]:checked');res(dlg.returnValue==='ok'&&c?roms[+c.value]:null);},{once:true});dlg.returnValue='';dlg.showModal();$('rom-ok').focus();});}
-async function loadRom(file){if(!file||!api)return;if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
+async function loadRom(file){if(!file||!api||coreBusy)return;if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
  const wasPaused=paused;try{paused=true;clearInput();let bytes=new Uint8Array(await file.arrayBuffer());let name=file.name,patchNote='';
   if(SwanArchive.isArchive(name)){message(`Opening ${name}…`);const roms=await SwanArchive.extractRoms(name,bytes);if(!roms.length)throw Error(`no .ws/.wsc/.pc2 ROM inside ${name}`);
    const r=roms.length===1?roms[0]:await pickRom(name,roms);if(!r){paused=wasPaused;message('Cancelled');return;}bytes=r.bytes;name=r.name.split('/').pop();}
@@ -90,11 +111,13 @@ async function loadRom(file){if(!file||!api)return;if(!/\.(ws|wsc|pc2|zip|7z)$/i
     if(r.patch)patchNote=` · patched with ${r.patch.variant}${r.patch.version?' v'+r.patch.version:''}`;
     else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;}
    catch(e){console.error(e);patchNote=` · PATCH FAILED (${e.message}), running the original ROM`;}}
-  await persistRam();if(romLoaded)api.unload();romLoaded=false;enabled(false);
-  romKey=await digest(bytes);romName=name;const ok=allocateBytes(bytes,(ptr,n)=>api.load(ptr,n));if(!ok)throw Error('Core rejected the ROM');romLoaded=true;
-  const saved=await retrieve(romKey);if(saved&&saved.length===api.saveSize()){allocateBytes(saved,(ptr,n)=>api.setSave(ptr,n));message(`Loaded ${romName}${patchNote} · battery save restored`);}else message(`Loaded ${romName}${patchNote}`);
-  enabled(true);paused=false;$('pause').textContent='Pause';bank=0;nextAudioTime=0;audioNode?.port.postMessage('reset');overlay.hidden=true;}
+  await startRom(bytes,name,patchNote);}
  catch(e){console.error(e);paused=wasPaused;message('Could not load ROM: '+e.message);}}
+/* Run a ROM (already patched) on the current core and restore its battery save. */
+async function startRom(bytes,name,note){await persistRam();if(romLoaded)api.unload();romLoaded=false;enabled(false);clearInput();
+ romKey=await digest(bytes);romName=name;current={bytes,name,note};const ok=allocateBytes(bytes,(ptr,n)=>api.load(ptr,n));if(!ok)throw Error('Core rejected the ROM');romLoaded=true;
+ const saved=await retrieve(romKey);if(saved&&saved.length===api.saveSize()){allocateBytes(saved,(ptr,n)=>api.setSave(ptr,n));message(`Loaded ${romName}${note} · battery save restored`);}else message(`Loaded ${romName}${note}`);
+ enabled(true);paused=false;$('pause').textContent='Pause';bank=0;nextAudioTime=0;audioNode?.port.postMessage('reset');overlay.hidden=true;}
 function download(bytes,name){if(!bytes?.length){message('No data available to export');return;}const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
 function stem(){return romName.replace(/\.[^.]+$/,'')||'wonderswan';}
 $('rom').addEventListener('change',e=>{loadRom(e.target.files[0]);e.target.value='';});
@@ -104,7 +127,7 @@ $('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscre
 $('sound').onclick=toggleSound;$('volume').oninput=e=>{volume=Number(e.target.value)/100;if(audioGain)audioGain.gain.value=volume;};
 $('export-save').onclick=()=>download(copyOut(api.save(),api.saveSize()),stem()+'.sav');
 $('import-save').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());if(allocateBytes(b,(ptr,n)=>api.setSave(ptr,n))){message('SRAM imported');await persistRam();}else message(`SRAM size mismatch; expected ${api.saveSize()} bytes`);}e.target.value='';};
-$('export-state').onclick=()=>{const n=api.stateSize();if(!n){message('States unavailable');return;}const ptr=wasm._malloc(n);try{if(api.saveState(ptr,n))download(copyOut(ptr,n),stem()+'.state');else message('State save failed');}finally{wasm._free(ptr);}};
+$('export-state').onclick=()=>{api.prepare();const n=api.stateSize();if(!n){message('States unavailable');return;}const ptr=wasm._malloc(n);try{if(api.saveState(ptr,n))download(copyOut(ptr,n),stem()+'.state');else message('State save failed');}finally{wasm._free(ptr);}};
 $('import-state').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());try{const ok=allocateBytes(b,(ptr,n)=>api.loadState(ptr,n));message(ok?'State restored':'State rejected (different ROM/core?)');}catch(err){message(err.message)}}e.target.value='';};
 window.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)||document.querySelector('dialog[open]'))return;const b=keyMap[e.code];if(b!==undefined){if(romLoaded)e.preventDefault();if(!e.repeat)press(b);}});
 window.addEventListener('keyup',e=>{const b=keyMap[e.code];if(b!==undefined)release(b);});
@@ -112,11 +135,13 @@ window.addEventListener('blur',clearInput);
 for(const button of document.querySelectorAll('[data-bit]')){const b=Number(button.dataset.bit);const down=e=>{e.preventDefault();button.setPointerCapture?.(e.pointerId);press(b);button.classList.add('pressed');};const up=e=>{e.preventDefault();release(b);button.classList.remove('pressed');};button.addEventListener('pointerdown',down);button.addEventListener('pointerup',up);button.addEventListener('pointercancel',up);button.addEventListener('lostpointercapture',up);}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){persistRam().catch(console.warn);bank=0;}});
 window.addEventListener('pagehide',()=>{persistRam().catch(()=>{});});
-/* Core options. 60 Hz mode makes the core output 60.38 fps (4 of every 5
- * frames, audio kept continuous) so motion is even on 60 Hz displays. */
+/* Core options. 60 Hz mode makes the Mednafen core output 60.38 fps (4 of
+ * every 5 frames, audio kept continuous) so motion is even on 60 Hz displays.
+ * ares has no such mode: it always runs at the native 75.47 Hz. */
 function pref(key,fallback){try{return localStorage.getItem('swanweb.'+key)??fallback}catch{return fallback}}
 function savePref(key,value){try{localStorage.setItem('swanweb.'+key,value)}catch{}}
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}
 $('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
+for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{if(e.target.checked)useCore(e.target.value);};
 $('opt-60hz').onchange=e=>{savePref('60hz',e.target.checked?'1':'0');applyOptions();bank=0;message(e.target.checked?'60 Hz mode on':'Native 75 Hz mode');};
 requestAnimationFrame(loop);startup();

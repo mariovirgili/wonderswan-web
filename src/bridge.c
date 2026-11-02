@@ -160,6 +160,8 @@ int ws_set_save(const void *buffer,size_t size) {
   if(!dest || !buffer || !real || size!=real) return 0;
   memcpy(dest,buffer,real);return 1;
 }
+/* Nothing to prepare here; the ares host needs this step (see ares_host.cpp). */
+void ws_prepare_state(void){}
 size_t ws_get_state_size(void){return loaded?retro_serialize_size():0;}
 int ws_save_state(void *ptr,size_t n){return loaded&&ptr&&retro_serialize(ptr,n);}
 int ws_load_state(const void *ptr,size_t n){return loaded&&ptr&&retro_unserialize(ptr,n);}

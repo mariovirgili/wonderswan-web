@@ -22,7 +22,7 @@ env:
 jobs:
   build:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 45
     permissions:
       contents: write   # only used to push the wasm-build branch, and only from main
     steps:
@@ -41,16 +41,19 @@ jobs:
         run: |
           gcc -Wall -O1 -fsanitize=address,undefined scripts/mock_core_test.c src/bridge.c -o mock_core_test
           ./mock_core_test
-      - name: Build linked Mednafen WASM (+ corresponding source)
+      - name: Build the Mednafen and ares WASM cores (+ corresponding source)
         run: bash scripts/build.sh
       - name: Unit tests and output checks
         run: |
           node --check site/app.js
           node --check site/patches.js
           node --check site/archive.js
+          node --check tests/ares_core_test.js
           node tests/patches_test.js
           SEVENZIP_DIR=.build/7z-wasm/package node tests/archive_test.js
           python3 scripts/verify_build.py .
+      - name: ares core test (Node)
+        run: node tests/ares_core_test.js site
       - name: End-to-end test in headless Chromium
         run: |
           npm install --no-save --no-package-lock --silent playwright@1.63.0

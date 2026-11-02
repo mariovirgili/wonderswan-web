@@ -30,7 +30,7 @@ cp "$LIB" "$ARCHIVE"
 LIB="$ARCHIVE"
 # Prevent stale outputs if linking fails.
 rm -f "$OUT/core.js" "$OUT/core.wasm"
-EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_set_input","_ws_get_video","_ws_get_width","_ws_get_height","_ws_get_audio","_ws_get_audio_frames","_ws_get_sample_rate","_ws_get_fps","_ws_get_save_size","_ws_get_save","_ws_set_save","_ws_reset","_ws_get_state_size","_ws_save_state","_ws_load_state","_ws_shutdown","_ws_set_option"]'
+EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_set_input","_ws_get_video","_ws_get_width","_ws_get_height","_ws_get_audio","_ws_get_audio_frames","_ws_get_sample_rate","_ws_get_fps","_ws_get_save_size","_ws_get_save","_ws_set_save","_ws_reset","_ws_prepare_state","_ws_get_state_size","_ws_save_state","_ws_load_state","_ws_shutdown","_ws_set_option"]'
 emcc -O3 "$ROOT/src/bridge.c" \
   -Wl,--whole-archive "$LIB" -Wl,--no-whole-archive -lm \
   -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=createWonderSwan \
@@ -40,6 +40,8 @@ emcc -O3 "$ROOT/src/bridge.c" \
   '-sEXPORTED_RUNTIME_METHODS=["cwrap","HEAPU8"]' \
   -o "$OUT/core.js"
 cp "$CORE/COPYING" "$OUT/COPYING"
+# The second core: ares (ISC), with the same ws_* API (src/ares_host.cpp).
+bash "$ROOT/scripts/build_ares.sh"
 # 7-Zip compiled to WebAssembly (LGPL + unRAR restriction) for .7z ROM archives; pinned version.
 SEVENZIP_VERSION="${SEVENZIP_VERSION:-1.2.0}"
 SZ="$ROOT/.build/7z-wasm"

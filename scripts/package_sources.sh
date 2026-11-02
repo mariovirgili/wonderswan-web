@@ -5,6 +5,8 @@
 #   wonderswan-ai-mtl-tester-source.tar.gz  this project at the commit being built
 #                                           (bridge.c, frontend, build scripts, CI workflow, tests)
 #   beetle-wswan-source.tar.gz              Beetle WonderSwan exactly as compiled (GPL-2.0)
+#   ares-source.tar.gz                      the ares files compiled into core-ares.wasm, as compiled
+#                                           (ISC; written only when scripts/build_ares.sh ran)
 #   7z-wasm-<ver>-source.tar.gz             7z-wasm build files at the published tag + the 7-Zip
 #                                           source release it is built from (LGPL-2.1 + unRAR restriction)
 set -euo pipefail
@@ -32,6 +34,14 @@ git -C "$ROOT" archive --format=tar.gz --prefix=wonderswan-ai-mtl-tester/ -o "$S
 BEETLE_COMMIT="$(git -C "$CORE" rev-parse HEAD)"
 tar --exclude=.git --exclude='*.o' --exclude='*.bc' --exclude='*.a' --exclude='*.bak' \
   --transform 's,^\.,beetle-wswan-libretro,' -czf "$SRC/beetle-wswan-source.tar.gz" -C "$CORE" .
+
+# 2b. ares: the files that went into core-ares.wasm (listed by scripts/build_ares.sh), as compiled.
+ARES_SRC="${ARES_SRC:-$ROOT/.build/ares}"
+ARES_COMMIT=""
+if [[ -f "$OUT/core-ares.wasm" ]]; then
+  ARES_COMMIT="$(git -C "$ARES_SRC" rev-parse HEAD)"
+  tar --transform 's,^,ares/,' -czf "$SRC/ares-source.tar.gz" -C "$ARES_SRC" -T "$ROOT/.build/ares-files.txt"
+fi
 
 # 3. 7z-wasm: build files at the release tag, checked against the binary we ship, plus 7-Zip's source.
 SZSRC="$ROOT/.build/7z-wasm-src"
@@ -76,6 +86,24 @@ grep -q "LESSER GENERAL PUBLIC LICENSE" "$OUT/vendor/7z/copying-LGPL.txt" \
 # Manifest.
 sha() { sha256sum "$1" | cut -d' ' -f1; }
 EMCC_VERSION="$(emcc --version 2>/dev/null | head -1 || echo unknown)"
+ARES_SECTION=""
+if [[ -n "$ARES_COMMIT" ]]; then
+  ARES_SECTION="
+4. ares-source.tar.gz
+   The ares emulator files compiled into core-ares.wasm, as compiled: the WonderSwan core, the
+   V30MZ CPU and 93LCxx EEPROM components, the ares node/scheduler library, nall (headers),
+   the generated resource.cpp / ares.cpp, and the sourcery tool that generates resource.cpp.
+   scripts/patch_ares.py from (1) was applied (WebAssembly platform detection, no sljit).
+   Repository: https://github.com/ares-emulator/ares
+   Commit: $ARES_COMMIT
+   License: ISC (LICENSE in the archive; ares-LICENSE.txt on the site)
+   sha256: $(sha "$SRC/ares-source.tar.gz")
+
+   core-ares.wasm + core-ares.js = (4) linked with src/ares_host.cpp, src/ares_stubs.cpp and
+   src/libco_emscripten.c from (1) (Emscripten fibers + Asyncify), using: $EMCC_VERSION
+   sha256 core-ares.wasm: $(sha "$OUT/core-ares.wasm")
+"
+fi
 cat > "$SRC/SOURCES.txt" <<TXT
 WonderSwan AI/MTL Tester - corresponding source
 ===============================================
@@ -85,8 +113,9 @@ folder is the complete corresponding source for the parts named, as required by 
 (core.wasm / core.js) and the GNU LGPL v2.1 (vendor/7z). Built $(date -u +%Y-%m-%dT%H:%MZ).
 
 1. wonderswan-ai-mtl-tester-source.tar.gz
-   This project: src/bridge.c, the web frontend (site/*.html, *.js, *.css), scripts/build.sh,
-   scripts/package_sources.sh, the GitHub Actions workflow and the tests.
+   This project: src/bridge.c, src/ares_host.cpp, src/ares_stubs.cpp, src/libco_emscripten.c,
+   the web frontend (site/*.html, *.js, *.css), scripts/build.sh, scripts/build_ares.sh,
+   scripts/patch_ares.py, scripts/package_sources.sh, the GitHub Actions workflow and the tests.
    Repository: https://github.com/mariovirgili/wonderswan-web
    Commit: $SELF_COMMIT$DIRTY
    License: GPL-2.0-only (LICENSE)
@@ -115,8 +144,9 @@ folder is the complete corresponding source for the parts named, as required by 
    sha256: $(sha "$SRC/7z-wasm-$SEVENZIP_VERSION-source.tar.gz")
    sha256 vendor/7z/7zz.wasm: $(sha "$OUT/vendor/7z/7zz.wasm")
 
+$ARES_SECTION
 To rebuild: unpack (1), install the Emscripten SDK version above, run scripts/build.sh
-(it fetches (2) at the same commit and 7z-wasm $SEVENZIP_VERSION). To rebuild 7-Zip itself,
-follow README.md / build in (3).
+(it fetches (2) and ares at the same commits, and 7z-wasm $SEVENZIP_VERSION). To rebuild
+7-Zip itself, follow README.md / build in (3).
 TXT
 echo "Corresponding source written to $SRC"
