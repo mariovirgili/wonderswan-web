@@ -47,7 +47,7 @@ git -C "$SZSRC/repo" archive HEAD | tar -x -C "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERS
 # The prebuilt outputs are object code, not source.
 rm -f "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/7zz.wasm" "$SZSRC/pkg/7z-wasm-$SEVENZIP_VERSION/7zz."*.js
 # 7-zip.org keeps only the current release; older ones are on the author's GitHub mirror and SourceForge.
-SZ_DIGITS="$(grep -oE '[0-9]+' <<<"$SZ_SRC_FILE" | head -1)"          # 2409
+SZ_DIGITS="$(sed -E 's/^7z([0-9]+)-src\.7z$/\1/' <<<"$SZ_SRC_FILE")"   # 2409
 SZ_DOTTED="${SZ_DIGITS:0:${#SZ_DIGITS}-2}.${SZ_DIGITS: -2}"           # 24.09
 SZ_SRC_URL=""
 for url in "https://github.com/ip7z/7zip/releases/download/$SZ_DOTTED/$SZ_SRC_FILE" \
