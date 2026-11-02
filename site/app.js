@@ -78,7 +78,7 @@ async function retrieve(key){const db=await openDB();if(!db)return null;const da
 async function persistRam(){if(!romLoaded||!romKey)return;const n=api.saveSize(),ptr=api.save();if(n&&ptr){const bytes=copyOut(ptr,n);await store(romKey,bytes);}}
 async function loadRom(file){if(!file||!api)return;if(!/\.(ws|wsc|pc2)$/i.test(file.name)){message('Unsupported file extension');return;}
  const wasPaused=paused;try{paused=true;clearInput();let bytes=new Uint8Array(await file.arrayBuffer());let name=file.name,patchNote='';
-  if(pref('patches','1')==='1'&&window.SwanPatches){try{const r=await SwanPatches.offer(bytes,file.name,message);bytes=r.bytes;name=r.name;
+  if(pref('patches','1')==='1'&&typeof SwanPatches!=='undefined'){try{const r=await SwanPatches.offer(bytes,file.name,message);bytes=r.bytes;name=r.name;
     if(r.patch)patchNote=` · patched with ${r.patch.variant}${r.patch.version?' v'+r.patch.version:''}`;
     else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;}
    catch(e){console.error(e);patchNote=` · PATCH FAILED (${e.message}), running the original ROM`;}}
