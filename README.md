@@ -8,8 +8,8 @@ files on disk.
 **Try it:** <https://mariovirgili.github.io/wonderswan-web/>
 
 The emulation is the real thing, with three cores to choose from at the top of the page:
-[Beetle WonderSwan](https://github.com/libretro/beetle-wswan-libretro) (Mednafen),
-[ares](https://github.com/ares-emulator/ares) and [Mesen 2](https://github.com/libretro/MesenCE), all compiled to
+[Mesen 2](https://github.com/libretro/MesenCE) (the default), [Beetle WonderSwan](https://github.com/libretro/beetle-wswan-libretro)
+(Mednafen) and [ares](https://github.com/ares-emulator/ares), all compiled to
 WebAssembly and driven by a small purpose-built frontend — no RetroArch. No ROMs or BIOS are included or uploaded anywhere: you load your own dumps, and they never
 leave your browser.
 
@@ -21,9 +21,9 @@ leave your browser.
   (mariovirgili first, then the others; each author separated by a thin bar) and by version, newest first, with
   language, format and a link to the release. The chosen patch is downloaded, verified and applied before the game
   starts. **Play original** (or Esc) skips it.
-- **Three emulator cores.** Mednafen (the default), ares or Mesen, picked at the top of the page. Switching keeps the
-  running game and its battery save, so a translation can be checked on each; the choice is remembered (`?core=ares`
-  or `?core=mesen` in the address also selects one).
+- **Three emulator cores.** Mesen (the default, and the fastest), Beetle/Mednafen or ares, picked at the top of the
+  page. Switching keeps the running game and its battery save, so a translation can be checked on each; a choice made
+  in the picker is remembered (`?core=mesen`, `?core=beetle` or `?core=ares` in the address also selects one).
 - **ROMs in archives.** `.ws`, `.wsc`, `.pc2`, or the same inside `.zip` / `.7z` files. If an archive holds several
   ROMs, you pick one.
 - **Smooth on 60 Hz screens.** Optional 60 Hz mode (on by default, Mednafen only) instead of the console's native

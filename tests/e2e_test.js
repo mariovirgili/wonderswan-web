@@ -114,8 +114,14 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.route(PATCH_URL, route => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: BPS }));
 
   await page.goto(base);
-  await page.waitForFunction(() => /core ready/i.test(document.getElementById('status').textContent), null, { timeout: 30000 });
-  check(true, 'page loads and the Mednafen core starts');
+  await page.waitForFunction(() => /core ready/i.test(document.getElementById('status').textContent), null, { timeout: 60000 });
+  const start = await page.evaluate(() => ({ core: coreName, order: [...document.querySelectorAll('.core-picker input')].map(i => i.value) }));
+  check(start.core === 'mesen' && start.order.join() === 'mesen,beetle,ares', `page loads with Mesen, first in the picker (${start.core}; ${start.order.join(', ')})`);
+  check(await page.evaluate(() => localStorage.getItem('swanweb.emulator')) === null, 'the default is not stored as a choice');
+  // Mednafen for the checks below, chosen from the picker.
+  await page.click('.core-picker input[value=beetle]');
+  await page.waitForFunction(() => coreName === 'beetle' && !coreBusy && /Mednafen core ready/.test(document.getElementById('status').textContent), null, { timeout: 30000 });
+  check(true, 'the Mednafen core starts from the picker');
   check(!/STANDALONE/.test(await page.textContent('header')), 'header has no tagline');
 
   const dialogOpen = () => page.waitForSelector('#patch-dialog[open]', { timeout: 20000 });
@@ -189,7 +195,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.waitForFunction(() => coreName === 'ares' && !coreBusy, null, { timeout: 60000 });
   const moved = await page.textContent('#status');
   check(/^Loaded Game \(Japan\)\.WSC/.test(moved), `ares core loads from the picker and takes over the running game (${moved})`);
-  check(await page.evaluate(() => localStorage.getItem('swanweb.core')) === 'ares', 'core choice is remembered');
+  check(await page.evaluate(() => localStorage.getItem('swanweb.emulator')) === 'ares', 'core choice is remembered');
   await pick('input-test.wsc', ROM);
   await dialogOpen();
   await page.click('#patch-dialog button[value=original]');

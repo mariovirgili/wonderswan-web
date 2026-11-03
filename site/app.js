@@ -43,13 +43,16 @@ function showCore(name){for(const r of document.querySelectorAll('input[name=cor
 async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCore(coreName);return;}coreBusy=true;const wasPaused=paused;paused=true;
  try{message(`Loading ${CORES[name].label} WASM…`);const next=await coreInstance(name);
   if(romLoaded){await persistRam();api.unload();romLoaded=false;enabled(false);}
-  ({wasm,api}=next);coreName=name;savePref('core',name);showCore(name);applyOptions();
+  ({wasm,api}=next);coreName=name;showCore(name);applyOptions();
   if(current){try{await startRom(current.bytes,current.name,current.note);paused=wasPaused;$('pause').textContent=paused?'Resume':'Pause';}
    catch(e){console.warn(e);current=null;overlay.hidden=false;message(`${CORES[name].label} core ready. It could not run the previous game (${e.message}); choose a ROM.`);}}
   else message(`${CORES[name].label} core ready. Choose a .ws, .wsc or .pc2 ROM, or a .zip / .7z containing one.`);}
  catch(e){console.error(e);message(`${CORES[name].label} core unavailable: ${e.message}`);showCore(coreName);if(!api)overlay.textContent='BUILD THE WASM CORE FIRST';paused=wasPaused;}
  finally{coreBusy=false;}}
-function startup(){const q=new URLSearchParams(location.search).get('core');const name=CORES[q]?q:(CORES[pref('core','beetle')]?pref('core','beetle'):'beetle');showCore(name);useCore(name);}
+/* Mesen is the default (the fastest in the browser). Only a choice made in the picker is remembered
+ * ('swanweb.emulator'; the older 'swanweb.core' also stored the default and is ignored). */
+const DEFAULT_CORE='mesen';
+function startup(){const q=new URLSearchParams(location.search).get('core'),saved=pref('emulator','');const name=CORES[q]?q:(CORES[saved]?saved:DEFAULT_CORE);showCore(name);useCore(name);}
 function render(){const w=api.width(),h=api.height();if(!w||!h||w>512||h>512)return;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.classList.toggle('portrait',h>w);ctx.imageSmoothingEnabled=false;}const n=w*h*4,ptr=api.video();if(!ptr||ptr+n>wasm.HEAPU8.byteLength)return;const pixels=new Uint8ClampedArray(wasm.HEAPU8.buffer,ptr,n);ctx.putImageData(new ImageData(new Uint8ClampedArray(pixels),w,h),0,0);}
 /* Audio: the core's samples go to an AudioWorklet ring buffer that plays them
  * on the audio clock. The worklet keeps ~60 ms queued and nudges its playback
@@ -145,6 +148,6 @@ function savePref(key,value){try{localStorage.setItem('swanweb.'+key,value)}catc
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}
 $('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
 /* The picker gives the keyboard back to the game: a focused radio button would take the arrow keys. */
-for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{e.target.blur();if(e.target.checked)useCore(e.target.value);};
+for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{e.target.blur();if(e.target.checked){savePref('emulator',e.target.value);useCore(e.target.value);}};
 $('opt-60hz').onchange=e=>{savePref('60hz',e.target.checked?'1':'0');applyOptions();bank=0;message(e.target.checked?'60 Hz mode on':'Native 75 Hz mode');};
 requestAnimationFrame(loop);startup();
