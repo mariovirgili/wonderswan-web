@@ -36,7 +36,8 @@ function bindApi(m){const c=(name,ret,args)=>m.cwrap(name,ret,args);return{
 function loadScript(src){return new Promise((resolve,reject)=>{const s=document.createElement('script');s.src=src;s.onload=resolve;s.onerror=()=>reject(Error(src.slice(2)+' is missing. Build the project with Emscripten first.'));document.head.append(s);});}
 async function coreInstance(name){if(instances[name])return instances[name];const c=CORES[name];
  if(typeof window[c.factory]!=='function')await loadScript(c.script);
- const m=await window[c.factory]({locateFile:path=>'./'+path,printErr:console.error});const a=bindApi(m);a.init();return instances[name]={wasm:m,api:a};}
+ /* A core's stderr: Mesen's libretro front end reports normal progress there ('[libretro] …'). */
+ const m=await window[c.factory]({locateFile:path=>'./'+path,printErr:t=>/^\[libretro\]/.test(t)?console.debug(t):console.error(t)});const a=bindApi(m);a.init();return instances[name]={wasm:m,api:a};}
 function showCore(name){for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const other=!!name&&name!=='beetle';$('opt-60hz').disabled=other;$('opt-60hz-note').hidden=!other;}
 /* Switch emulator core. A running game moves to the new core with its battery save. */
 async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCore(coreName);return;}coreBusy=true;const wasPaused=paused;paused=true;
