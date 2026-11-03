@@ -51,7 +51,8 @@ leave your browser.
 
 ## Using it
 
-1. Open the page and press **Load ROM**. Choose a `.ws` / `.wsc` / `.pc2` file, or a `.zip` / `.7z` that contains one.
+1. Open the page and press **Load ROM** (or drop the file on the page). Choose a `.ws` / `.wsc` / `.pc2` file, or a
+   `.zip` / `.7z` that contains one.
 2. If translation patches exist for that exact ROM, a window lists them. Pick one and press **Apply patch and play**,
    or **Play original**. Already-patched ROMs are recognised and named in the status line.
 3. Press **Enable sound** to hear the game (browsers only allow audio after a click); press it again to mute.

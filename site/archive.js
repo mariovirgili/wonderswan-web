@@ -9,7 +9,7 @@
  */
 'use strict';
 const SwanArchive = (() => {
-  const ROM_RE = /\.(ws|wsc|pc2)$/i;
+  const ROM_RE = /\.(ws|wsc|pc2|nes|sfc|smc|gb|gbc|sms|gg|pce)$/i;
   const VENDOR = './vendor/7z/';
   const MAX_ROM = 64 * 1024 * 1024;
 

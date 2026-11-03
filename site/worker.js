@@ -56,7 +56,7 @@ const handlers = {
       }
     }
     const w = m._ws_get_width(), h = m._ws_get_height();
-    const video = w && h && w <= 512 && h <= 512 ? copy(m._ws_get_video(), w * h * 4) : new Uint8Array(0);
+    const video = w && h && w <= 1024 && h <= 1024 ? copy(m._ws_get_video(), w * h * 4) : new Uint8Array(0);
     const pcm = new Int16Array(total * 2);
     let o = 0;
     for (const part of parts) { const s = new Int16Array(part.buffer); pcm.set(s, o); o += s.length; }

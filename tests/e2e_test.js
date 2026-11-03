@@ -365,6 +365,29 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   const backStatus = await page.textContent('#status');
   check(/battery save restored/.test(backStatus), `switching back to Mednafen keeps the running game and its battery save (${backStatus})`);
 
+  // Other systems (not advertised): a NES ROM moves the page to Mesen without changing the chosen
+  // emulator, its controller works, the picker keeps it on Mesen, and a WonderSwan ROM goes back.
+  const NES = require('./other_systems.js').nes();
+  await pick('test.nes', NES);
+  await page.waitForFunction(() => /^Loaded test\.nes/.test(document.getElementById('status').textContent) && !coreBusy, null, { timeout: 60000 });
+  await page.waitForTimeout(500);
+  const ns = await page.evaluate(() => ({ core: coreName, w: info.width, h: info.height, chosen: localStorage.getItem('swanweb.emulator'), dialog: !!document.querySelector('dialog[open]') }));
+  check(ns.core === 'mesen' && ns.w === 256 && ns.h === 240 && ns.chosen === 'beetle' && !ns.dialog, `a NES ROM runs on Mesen (${ns.core}, ${ns.w}x${ns.h}; chosen emulator still ${ns.chosen})`);
+  const nesIdle = JSON.stringify(await colour());
+  await page.keyboard.down('x');
+  let nesHeld = nesIdle;
+  for (let t = 0; t < 20 && nesHeld === nesIdle; t++) { await page.waitForTimeout(100); nesHeld = JSON.stringify(await colour()); }
+  await page.keyboard.up('x');
+  check(nesHeld !== nesIdle, `the NES controller works (${nesIdle} -> ${nesHeld})`);
+  await page.click('.core-picker input[value=ares]');
+  await page.waitForTimeout(300);
+  check(await page.evaluate(() => coreName === 'mesen' && document.querySelector('.core-picker input[value=mesen]').checked), 'the picker keeps a NES game on Mesen');
+  await pick('input-test.wsc', ROM);
+  await dialogOpen();
+  await page.click('#patch-dialog button[value=original]');
+  await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && !coreBusy, null, { timeout: 60000 });
+  check(await page.evaluate(() => coreName) === 'beetle', 'a WonderSwan ROM goes back to the chosen emulator (Mednafen)');
+
   check(problems.length === 0, `no console errors, page errors, failed requests or CSP violations${problems.length ? ': ' + problems.join(' / ') : ''}`);
   await browser.close();
   srv.close();

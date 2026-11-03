@@ -16,6 +16,11 @@ let inFlight=false, lastVideo=null, msPerFrame=0, framesRun=0;
 /* The emulator cores. Each runs in its own Web Worker (worker.js), started the first time it is
  * chosen and kept; the page sends it requests and draws what comes back. */
 const CORES={beetle:{label:'Mednafen',script:'./core.js',factory:'createWonderSwan'},ares:{label:'ares',script:'./core-ares.js',factory:'createAres'},mesen:{label:'Mesen',script:'./core-mesen.js',factory:'createMesen'}};
+/* Mesen also runs some other systems that need no BIOS, picked by the ROM's extension (passed to its
+ * bridge as the content file's extension). Not advertised on the page. */
+const OTHER_SYSTEMS={nes:'nes',sfc:'sfc',smc:'sfc',gb:'gb',gbc:'gbc',sms:'sms',gg:'gg',pce:'pce'};
+const systemOf=name=>OTHER_SYSTEMS[(/\.([^.]+)$/.exec(name||'')||[])[1]?.toLowerCase()]||'ws';
+let switchedFrom='';// the core chosen before a ROM of another system moved the page to Mesen
 const instances={};let coreName='',coreBusy=false,current=null;// current: the running game {bytes,name,note}
 let original=null;// the ROM as loaded, before any patch {bytes,name}: a local patch file is applied to it
 let fastForward=false,ffKey=false,ffTouch=false,slot=1;
@@ -39,7 +44,10 @@ function message(t){status.textContent=t}
 const LATCH_FRAMES=6, latch=new Uint8Array(32);
 function press(b){buttons|=1<<b;latch[b]=LATCH_FRAMES;}
 function release(b){buttons&=~(1<<b);}
-function inputMask(){let m=buttons|gamepadBits;for(let i=0;i<32;i++)if(latch[i])m|=1<<i;return m>>>0;}
+function inputMask(){let m=buttons|gamepadBits;for(let i=0;i<32;i++)if(latch[i])m|=1<<i;
+ // Other systems: Y pad ↑ / ↓ (W / S) are the X and Y buttons; ← / → (A / D) stay L and R.
+ if(info.system&&info.system!=='ws')m=(m&~(1<<13|1<<12))|(m>>13&1)<<9|(m>>12&1)<<1;
+ return m>>>0;}
 function tickLatch(){for(let i=0;i<32;i++)if(latch[i])latch[i]--;}
 function clearInput(){buttons=0;latch.fill(0);}
 function enabled(v){for(const id of ['pause','reset','sound','export-save','export-state','qsave','qload','patch-file','ff'])$(id).disabled=!v;$('patch-file-label').classList.toggle('disabled',!v);}
@@ -80,7 +88,7 @@ async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCor
  * ('swanweb.emulator'; the older 'swanweb.core' also stored the default and is ignored). */
 const DEFAULT_CORE='mesen';
 function startup(){const q=new URLSearchParams(location.search).get('core'),saved=pref('emulator','');const name=CORES[q]?q:(CORES[saved]?saved:DEFAULT_CORE);showCore(name);useCore(name);}
-function render(video,w,h){if(!w||!h||w>512||h>512||!video||video.length!==w*h*4)return;lastVideo=video;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.classList.toggle('portrait',h>w);ctx.imageSmoothingEnabled=false;fitCanvas();}ctx.putImageData(new ImageData(new Uint8ClampedArray(video.buffer,video.byteOffset,video.length),w,h),0,0);}
+function render(video,w,h){if(!w||!h||w>1024||h>1024||!video||video.length!==w*h*4)return;lastVideo=video;if(canvas.width!==w||canvas.height!==h){canvas.width=w;canvas.height=h;canvas.classList.toggle('portrait',h>w);ctx.imageSmoothingEnabled=false;fitCanvas();}ctx.putImageData(new ImageData(new Uint8ClampedArray(video.buffer,video.byteOffset,video.length),w,h),0,0);}
 /* Audio: the core's samples go to an AudioWorklet ring buffer that plays them
  * on the audio clock. The worklet keeps ~60 ms queued and nudges its playback
  * rate by at most ±0.5% to follow the emulator, so there are no per-frame
@@ -123,6 +131,7 @@ function feedAudio(input,rate){if(!soundOn||!audioContext||audioContext.state!==
 let gamepadFF=false;
 function pollPad(){gamepadBits=0;gamepadFF=false;for(const p of navigator.getGamepads?.()||[]){if(!p||!p.connected)continue;const pressed=i=>!!p.buttons[i]?.pressed,axis=i=>p.axes[i]||0;
  for(const [a] of ACTIONS)if((padBinds[a]||[]).some(pressed)){if(a==='ff')gamepadFF=true;else gamepadBits|=1<<a;}
+ if(info.system&&info.system!=='ws'){if(pressed(2))gamepadBits|=1<<12;if(pressed(3))gamepadBits|=1<<13;}
  if(axis(1)<-.5)gamepadBits|=1<<4;if(axis(1)>.5)gamepadBits|=1<<5;if(axis(0)<-.5)gamepadBits|=1<<6;if(axis(0)>.5)gamepadBits|=1<<7;break;}}
 /* Fast forward (hold Space or the ⏩ button): up to FF_SPEED× speed, as far as the CPU allows; the
  * sound is skipped meanwhile. */
@@ -171,12 +180,15 @@ function pickRom(archiveName,roms){const dlg=$('rom-dialog'),list=$('rom-list');
 function showNotice(n){const box=$('notice');box.replaceChildren();box.hidden=!n;if(!n)return;
  box.append(`This ROM was made with ${n.made.variant} v${n.made.version}. ${n.newer.game||'The translation'} v${n.newer.version} is out: load the original ROM to apply it.`);
  if(/^https:\/\//.test(n.newer.page||'')){const a=document.createElement('a');a.href=n.newer.page;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Release page';box.append(' ',a);}}
-async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
+async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)&&systemOf(file.name)==='ws'){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
  const wasPaused=paused;try{paused=true;clearInput();let bytes=new Uint8Array(await file.arrayBuffer());let name=file.name,patchNote='';
   if(SwanArchive.isArchive(name)){message(`Opening ${name}…`);const roms=await SwanArchive.extractRoms(name,bytes);if(!roms.length)throw Error(`no .ws/.wsc/.pc2 ROM inside ${name}`);
    const r=roms.length===1?roms[0]:await pickRom(name,roms);if(!r){paused=wasPaused;message('Cancelled');return;}bytes=r.bytes;name=r.name.split('/').pop();}
   original={bytes,name};
-  if(pref('patches','1')==='1'&&typeof SwanPatches!=='undefined'){try{const r=await SwanPatches.offer(bytes,name,message);bytes=r.bytes;name=r.name;
+  const system=systemOf(name);
+  if(system!=='ws'&&coreName!=='mesen'){switchedFrom=coreName;current=null;await useCore('mesen');if(coreName!=='mesen')throw Error('Mesen is not available');}
+  else if(system==='ws'&&switchedFrom&&coreName==='mesen'){const back=switchedFrom;switchedFrom='';current=null;await useCore(back);}
+  if(system==='ws'&&pref('patches','1')==='1'&&typeof SwanPatches!=='undefined'){try{const r=await SwanPatches.offer(bytes,name,message);bytes=r.bytes;name=r.name;
     if(r.patch)patchNote=` · patched with ${r.patch.variant}${r.patch.version?' v'+r.patch.version:''}`;
     else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;
     showNotice(r.newer?{made:r.recognised,newer:r.newer}:null);}
@@ -185,9 +197,10 @@ async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);i
  catch(e){console.error(e);paused=wasPaused;message('Could not load ROM: '+e.message);}}
 /* Run a ROM (already patched) on the current core and restore its battery save. */
 async function startRom(bytes,name,note){await persistRam();if(romLoaded)await core.call('unload');romLoaded=false;saveKey='';enabled(false);clearInput();
- romKey=await digest(bytes);romName=name;current={bytes,name,note};const r=await core.call('load',{rom:bytes});if(!r.ok)throw Error('Core rejected the ROM');
- info={width:r.width,height:r.height,fps:r.fps,rate:r.rate,saveSize:r.saveSize};lastVideo=null;msPerFrame=0;romLoaded=true;
- info.chipSize=chipSize(bytes);saveKey=romKey;let saved=await retrieve(romKey),restored='';
+ romKey=await digest(bytes);romName=name;current={bytes,name,note};const system=systemOf(name);
+ await core.call('setOption',{key:'bridge_content_ext',value:system==='ws'?'':system});const r=await core.call('load',{rom:bytes});if(!r.ok)throw Error('Core rejected the ROM');
+ info={width:r.width,height:r.height,fps:r.fps,rate:r.rate,saveSize:r.saveSize,system};lastVideo=null;msPerFrame=0;romLoaded=true;
+ info.chipSize=system==='ws'?chipSize(bytes):0;saveKey=romKey;let saved=await retrieve(romKey),restored='';
  if(saved&&info.saveSize){const fit=fitSave(saved,info.saveSize);
   if(!fit){saveKey=`${romKey}|${info.saveSize}`;saved=await retrieve(saveKey);// kept apart: the other save stays as it is
    if(saved?.length===info.saveSize&&await core.call('setSave',{bytes:saved}))restored=' · battery save restored';
@@ -199,6 +212,9 @@ function download(bytes,name){if(!bytes?.length){message('No data available to e
 function kb(n){return n>=1024?`${n/1024} KB`:`${n} bytes`;}
 function stem(){return romName.replace(/\.[^.]+$/,'')||'wonderswan';}
 $('rom').addEventListener('change',e=>{loadRom(e.target.files[0]);e.target.value='';});
+/* A ROM (or archive) dropped anywhere on the page is loaded too. */
+window.addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files')){e.preventDefault();e.dataTransfer.dropEffect='copy';}});
+window.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(!f)return;e.preventDefault();if(!document.querySelector('dialog[open]'))loadRom(f);});
 $('pause').onclick=()=>{paused=!paused;bank=0;$('pause').textContent=paused?'Resume':'Pause';message(paused?'Paused':'Running');};
 $('reset').onclick=async()=>{await core.call('reset');message('Console reset');};
 $('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.querySelector('.screen-wrap').requestFullscreen?.();};
@@ -286,7 +302,9 @@ for(const k of ['lcd','blend'])$('opt-'+k).onchange=e=>{savePref(`${k}.${coreNam
 $('opt-integer').onchange=e=>{savePref('integer',e.target.checked?'1':'0');fitCanvas();};
 $('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
 /* The picker gives the keyboard back to the game: a focused radio button would take the arrow keys. */
-for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{e.target.blur();if(e.target.checked){savePref('emulator',e.target.value);useCore(e.target.value);}};
+for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{e.target.blur();if(!e.target.checked)return;
+ if(current&&systemOf(current.name)!=='ws'&&e.target.value!=='mesen'){showCore(coreName);message('This game runs only with Mesen');return;}
+ switchedFrom='';savePref('emulator',e.target.value);useCore(e.target.value);};
 $('opt-60hz').onchange=e=>{savePref('60hz',e.target.checked?'1':'0');applyOptions();bank=0;message(e.target.checked?'60 Hz mode on':'Native 75 Hz mode');};
 buildKeyMap();renderHelp();
 requestAnimationFrame(loop);startup();

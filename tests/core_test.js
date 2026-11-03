@@ -89,6 +89,26 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   api.reset(); frames(5);
   check(api.width() === 224, 'reset');
   api.unload();
+  if (NAME === 'mesen') {
+    // Mesen also runs other systems, chosen by the file extension the bridge gives the ROM
+    // (option bridge_content_ext): tiny homebrew ROMs boot at each system's screen size.
+    const roms = require('./other_systems.js'), setOpt = c('ws_set_option', 'number', ['string', 'string']);
+    const sizes = { nes: [roms.nes, '256x240'], gb: [roms.gb, '160x144'], gbc: [roms.gb, '160x144'], sms: [roms.sms, '256x192'],
+      gg: [roms.sms, '160x144'], pce: [roms.pce, ''], sfc: [roms.snes, '256x224'] };
+    for (const [ext, [make, size]] of Object.entries(sizes)) {
+      const rom = make(); setOpt('bridge_content_ext', ext);
+      const p = m._malloc(rom.length); m.HEAPU8.set(rom, p); const ok = api.load(p, rom.length); m._free(p);
+      frames(30);
+      const got = `${api.width()}x${api.height()}`;
+      check(ok === 1 && (!size || got === size) && api.fps() > 50, `${ext} ROM boots on Mesen (${got}, ${api.fps().toFixed(2)} Hz)`);
+      if (ext === 'nes') {
+        const idle = pixel(); api.input(1 << 8); frames(4); const held = pixel(); api.input(0);
+        check(JSON.stringify(idle) !== JSON.stringify(held), `NES controller reaches the game (${idle} -> ${held})`);
+      }
+      api.unload();
+    }
+    setOpt('bridge_content_ext', '');
+  }
   console.log(failures ? `${failures} ${NAME} check(s) failed` : `all ${NAME} core tests passed`);
   process.exit(failures ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

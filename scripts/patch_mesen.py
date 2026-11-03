@@ -19,6 +19,8 @@
 6. Rotation: the WonderSwan auto-rotate setting was never applied and the frame was never
    turned. Vertical games now turn by themselves (Mesen's own WsConsole rule), and Select - the
    page's Rotate key - switches to the other orientation, as with the other cores.
+7. Other systems: Mesen's own defaults for the NES palette and the Master System, Game Gear and
+   Super Nintendo borders, which the libretro port leaves unset.
 
 The emulation itself is not changed. The patch is idempotent.
 """
@@ -132,6 +134,19 @@ patch('''	void update_settings()
 				wsCfg.BlendFrames = string(var.value) == "enabled";
 			}
 			_emu->GetSettings()->SetWsConfig(wsCfg);
+			// Other systems: Mesen's own defaults, which its desktop interface sets and the libretro
+			// port leaves unset (an empty NES palette is all black; the Master System, Game Gear and
+			// Super Nintendo pictures keep their borders).
+			if(_userRgbPalette.empty()) {
+				_userRgbPalette.assign(std::begin(defaultPalette), std::end(defaultPalette));
+			}
+			SmsConfig smsCfg = _emu->GetSettings()->GetSmsConfig();
+			smsCfg.NtscOverscan = smsCfg.PalOverscan = { 0, 0, 24, 24 };
+			smsCfg.GameGearOverscan = { 48, 48, 48, 48 };
+			_emu->GetSettings()->SetSmsConfig(smsCfg);
+			SnesConfig snesCfg = _emu->GetSettings()->GetSnesConfig();
+			snesCfg.Overscan = { 0, 0, 7, 8 };
+			_emu->GetSettings()->SetSnesConfig(snesCfg);
 		}
 ''')
 patch('''				setupDefaultMapping(wsCfg.ControllerHorizontal.Keys, 0);
@@ -139,6 +154,11 @@ patch('''				setupDefaultMapping(wsCfg.ControllerHorizontal.Keys, 0);
 				// Y pad up / down (web build): R2 / L2, as Y-left / Y-right are L / R.
 				setButton(wsCfg.ControllerHorizontal.Keys.Mapping1.U, 0, RETRO_DEVICE_ID_JOYPAD_R2);
 				setButton(wsCfg.ControllerHorizontal.Keys.Mapping1.D, 0, RETRO_DEVICE_ID_JOYPAD_L2);
+''')
+# The frame goes through the filter with the borders cropped as set above (Mesen applies no crop to
+# the WonderSwan, Game Boy and GBA).
+patch('''				FrameInfo outInfo = filter->SendFrame((uint16_t*)frame.FrameBuffer, _emu->GetFrameCount(), _emu->GetFrameCount() & 0x01, nullptr, false);
+''', '''				FrameInfo outInfo = filter->SendFrame((uint16_t*)frame.FrameBuffer, _emu->GetFrameCount(), _emu->GetFrameCount() & 0x01, nullptr, true);
 ''')
 p.write_text(s)
 

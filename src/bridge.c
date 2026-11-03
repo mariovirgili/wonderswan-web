@@ -8,7 +8,7 @@
 #include <string.h>
 #include <stdint.h>
 
-#define MAX_SIDE 512
+#define MAX_SIDE 1024
 #define MAX_AUDIO_FRAMES 8192
 static uint8_t rgba[MAX_SIDE * MAX_SIDE * 4];
 static int16_t audio[MAX_AUDIO_FRAMES * 2];
@@ -20,15 +20,20 @@ static uint8_t *loaded_rom;
 
 /* Cores that read content from a file and want system / save folders (Mesen 2, built with
  * -DBRIDGE_CONTENT_FILE and Emscripten's in-memory file system) get the ROM written to a file.
- * The file name ends in .ws or .wsc, from the colour flag in the ROM footer. */
+ * The file name ends in .ws or .wsc, from the colour flag in the ROM footer, unless the page set the
+ * option "bridge_content_ext" (Mesen picks the system from the extension). */
 #ifdef BRIDGE_CONTENT_FILE
 #include <stdio.h>
 #include <sys/stat.h>
 static char system_dir[] = "/swan/system", save_dir[] = "/swan/saves", content_path[64];
+static const char *option(const char *key);
 static int write_content(const uint8_t *data, size_t size) {
   mkdir("/swan", 0755); mkdir(system_dir, 0755); mkdir(save_dir, 0755); mkdir("/swan/content", 0755);
   bool color = size >= 16 && data[size - 16 + 7] != 0;
-  snprintf(content_path, sizeof content_path, "/swan/content/game.%s", color ? "wsc" : "ws");
+  const char *ext = option("bridge_content_ext");
+  bool ok = ext && *ext && strlen(ext) <= 4;
+  for(const char *c = ext; ok && *c; c++) ok = (*c >= 'a' && *c <= 'z') || (*c >= '0' && *c <= '9');
+  snprintf(content_path, sizeof content_path, "/swan/content/game.%s", ok ? ext : color ? "wsc" : "ws");
   FILE *f = fopen(content_path, "wb");
   if(!f) return 0;
   size_t n = fwrite(data, 1, size, f);
@@ -43,6 +48,10 @@ static int write_content(const uint8_t *data, size_t size) {
 static struct { char key[OPT_LEN], value[OPT_LEN]; } opts[MAX_OPTS];
 static int n_opts;
 static bool opts_dirty;
+static const char *option(const char *key) {
+  for(int i=0;i<n_opts;i++) if(!strcmp(opts[i].key,key)) return opts[i].value;
+  return NULL;
+}
 
 static void apply_av(const struct retro_system_av_info *av) {
   if(av->timing.fps>30 && av->timing.fps<200) fps=av->timing.fps;
