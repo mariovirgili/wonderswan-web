@@ -101,6 +101,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
       frames(30);
       const got = `${api.width()}x${api.height()}`;
       check(ok === 1 && (!size || got === size) && api.fps() > 50, `${ext} ROM boots on Mesen (${got}, ${api.fps().toFixed(2)} Hz)`);
+      if (ext === 'gb') { const [r, g, b] = pixel(); check(r === g && g === b, `an original Game Boy game runs on the Game Boy, in greys, not GBC colours (${r},${g},${b})`); }
       if (ext === 'nes') {
         const idle = pixel(); api.input(1 << 8); frames(4); const held = pixel(); api.input(0);
         check(JSON.stringify(idle) !== JSON.stringify(held), `NES controller reaches the game (${idle} -> ${held})`);

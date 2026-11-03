@@ -2,7 +2,9 @@
 // Tiny homebrew ROMs for the other systems Mesen 2 runs (no BIOS needed), used by tests/core_test.js
 // and tests/e2e_test.js. Each is a few bytes of code written for these tests: start, then loop.
 // The NES one reads the controller every frame and paints the backdrop red while any button is
-// held, black otherwise.
+// held, black otherwise. The Game Boy one is an original Game Boy game with Super Game Boy features
+// (as Super Mario Land 2): on the Game Boy its screen is grey (it has no Nintendo logo, so the boot
+// screen stays up), on the Color it would get colours.
 'use strict';
 
 function nes() {
@@ -32,7 +34,9 @@ function gb() {
   const rom = new Uint8Array(0x8000);
   rom.set([0x00, 0xC3, 0x50, 0x01], 0x100);          // nop; jp $0150
   rom.set([...Buffer.from('SWANTEST')], 0x134);
-  rom.set([0xF3, 0x18, 0xFE], 0x150);                // di; jr $
+  rom[0x146] = 0x03; rom[0x14B] = 0x33;               // Super Game Boy features, as many original games
+  // di; BGP = all colour 1; LCD and background on; jr $ (on the Game Boy: light grey)
+  rom.set([0xF3, 0x3E, 0x55, 0xE0, 0x47, 0x3E, 0x91, 0xE0, 0x40, 0x18, 0xFE], 0x150);
   let c = 0;
   for (let i = 0x134; i <= 0x14C; i++) c = (c - rom[i] - 1) & 0xFF;
   rom[0x14D] = c;

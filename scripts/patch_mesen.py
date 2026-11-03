@@ -19,8 +19,9 @@
 6. Rotation: the WonderSwan auto-rotate setting was never applied and the frame was never
    turned. Vertical games now turn by themselves (Mesen's own WsConsole rule), and Select - the
    page's Rotate key - switches to the other orientation, as with the other cores.
-7. Other systems: Mesen's own defaults for the NES palette and the Master System, Game Gear and
-   Super Nintendo borders, which the libretro port leaves unset.
+7. Other systems: Mesen's own defaults for the NES palette, the Game Boy model and the Master
+   System, Game Gear and Super Nintendo borders, which the libretro port leaves unset. A Super Game
+   Boy game (no SNES here) runs on the Game Boy, not on the GBC.
 
 The emulation itself is not changed. The patch is idempotent.
 """
@@ -144,6 +145,12 @@ patch('''	void update_settings()
 			smsCfg.NtscOverscan = smsCfg.PalOverscan = { 0, 0, 24, 24 };
 			smsCfg.GameGearOverscan = { 48, 48, 48, 48 };
 			_emu->GetSettings()->SetSmsConfig(smsCfg);
+			// Game Boy: Mesen's own "Auto - best" model, as its desktop interface sets it: Game Boy Color
+			// games on the GBC, original Game Boy games on the Game Boy (the port's default ran them on
+			// the GBC, which without its boot ROM gives them stray colours instead of the grey palette).
+			GameboyConfig gbCfg = _emu->GetSettings()->GetGameboyConfig();
+			gbCfg.Model = GameboyModel::AutoFavorBest;
+			_emu->GetSettings()->SetGameboyConfig(gbCfg);
 			SnesConfig snesCfg = _emu->GetSettings()->GetSnesConfig();
 			snesCfg.Overscan = { 0, 0, 7, 8 };
 			_emu->GetSettings()->SetSnesConfig(snesCfg);
@@ -210,3 +217,17 @@ patch_file('Core/Shared/Video/VideoRenderer.cpp', [
 #endif'''),
 ])
 print('patch_mesen: libretro.cpp, ShortcutKeyHandler.cpp, VideoDecoder.cpp, VideoRenderer.cpp patched')
+patch_file('Core/Gameboy/Gameboy.cpp', [
+    ('''	if(!_allowSgb && model == GameboyModel::SuperGameboy) {
+		//SGB isn't available, use gameboy color mode instead
+		model = GameboyModel::GameboyColor;
+	}''', '''	if(!_allowSgb && model == GameboyModel::SuperGameboy) {
+#ifdef __EMSCRIPTEN__
+		//Web build: SGB isn't available, so an original Game Boy game runs on the Game Boy
+		model = GameboyModel::Gameboy;
+#else
+		//SGB isn't available, use gameboy color mode instead
+		model = GameboyModel::GameboyColor;
+#endif
+	}'''),
+])
