@@ -176,7 +176,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     frames: framesRun, paused, key: keyMap.KeyK, events: window.__keys }));
   const before = await remapState();
   // Hold a key and wait (up to 2 s; CI machines are slow) until the picture shows the A colour.
-  await page.evaluate(() => { window.__keys = []; addEventListener('keydown', e => __keys.push(`${e.code}${e.repeat ? '(r)' : ''}:${e.defaultPrevented}`)); });
+  await page.evaluate(() => { window.__keys = []; addEventListener('keydown', e => __keys.push(`${e.code}${e.repeat ? '(r)' : ''}:${e.defaultPrevented}`));
+    addEventListener('keyup', e => __keys.push(`up:${e.code}`)); addEventListener('blur', () => __keys.push('blur'));
+    const c = clearInput, r = release; clearInput = () => { __keys.push('clear'); c(); }; release = b => { __keys.push(`release${b}`); r(b); }; });
   const holdFor = async key => {
     await page.keyboard.down(key);
     await page.waitForTimeout(50);
