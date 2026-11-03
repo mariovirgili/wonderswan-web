@@ -253,6 +253,15 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.keyboard.up('Space');
   await page.waitForTimeout(300);
   check(ffOn && !/fast forward/.test(await page.textContent('#fps')), 'fast forward while Space is held');
+  // FPS counter: the button shows it on the screen (frames per second and speed), and hides it again.
+  await page.click('#fps-toggle');
+  await page.waitForFunction(() => /^\d+\.\d fps · \d+%$/.test(document.getElementById('fps-counter').textContent), null, { timeout: 5000 }).catch(() => {});
+  await page.waitForTimeout(1200);
+  const fpsText = await page.textContent('#fps-counter'), fpsShown = await page.isVisible('#fps-counter');
+  const pct = +(/(\d+)%$/.exec(fpsText) || [])[1];
+  await page.click('#fps-toggle');
+  const fpsHidden = await page.isHidden('#fps-counter'), fpsPref = await page.evaluate(() => localStorage.getItem('swanweb.showfps'));
+  check(fpsShown && pct >= 60 && pct <= 140 && fpsHidden && fpsPref === '0', `FPS counter on and off (${fpsText})`);
 
   // 3. The ROM inside a .zip.
   await pick('input-test.zip', makeZip('sub/input-test.wsc', ROM));

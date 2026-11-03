@@ -48,6 +48,8 @@ leave your browser.
 - **Emulation in a Web Worker**, so the page stays responsive while the core works and the core is not slowed down by
   the page.
 - **Low-latency audio** (AudioWorklet), with an on/off toggle and volume.
+- **FPS counter.** The **FPS** button shows, in a corner of the screen, the frames per second the emulator runs and
+  its speed against the real console (100% = real time); the choice is remembered.
 
 ## Using it
 

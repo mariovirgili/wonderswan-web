@@ -138,6 +138,13 @@ function pollPad(){gamepadBits=0;gamepadFF=false;for(const p of navigator.getGam
 const FF_SPEED=4;
 /* Each display refresh asks the worker for the frames that are due (one input mask per frame), unless
  * the previous batch is still running; the answer brings the last picture and the batch's sound. */
+/* FPS counter (button FPS, remembered): frames the core ran in the last half second, per second,
+ * and the speed against the console's own rate (100% = real time; more in fast forward). */
+let fpsFrames=0,fpsSince=0;
+function countFps(n){fpsFrames+=n;const now=performance.now();if(!fpsSince){fpsSince=now;return;}const dt=now-fpsSince;if(dt<500)return;
+ const fps=fpsFrames*1000/dt,box=$('fps-counter');fpsFrames=0;fpsSince=now;
+ if(!box.hidden)box.textContent=`${fps.toFixed(1)} fps · ${Math.round(fps/(info.fps||75.47)*100)}%`;}
+function showFps(on){$('fps-counter').hidden=!on;$('fps-counter').textContent='— fps';$('fps-toggle').setAttribute('aria-pressed',String(on));fpsFrames=0;fpsSince=0;}
 function loop(now){requestAnimationFrame(loop);if(!romLoaded||paused||!core){lastFrame=now;return;}if(inFlight)return;
  frameDuration=1000/(info.fps||75.47);const dt=Math.min(now-lastFrame,100);lastFrame=now;
  pollPad();const ff=fastForward=ffKey||ffTouch||gamepadFF;bank+=ff?dt*FF_SPEED:dt;
@@ -148,7 +155,7 @@ function loop(now){requestAnimationFrame(loop);if(!romLoaded||paused||!core){las
  if(n<1)return;bank-=n*frameDuration;if(ff)bank=Math.min(bank,frameDuration);
  const masks=[];for(let i=0;i<n;i++){masks.push(inputMask());tickLatch();}
  inFlight=true;const runner=core;
- runner.call('run',{masks,wantAudio:soundOn&&!ff}).then(r=>{if(runner!==core||!romLoaded)return;msPerFrame=r.ms/n;framesRun+=r.frames;
+ runner.call('run',{masks,wantAudio:soundOn&&!ff}).then(r=>{if(runner!==core||!romLoaded)return;msPerFrame=r.ms/n;countFps(r.frames);framesRun+=r.frames;
    info.width=r.width;info.height=r.height;info.fps=r.fps||info.fps;info.rate=r.rate||info.rate;
    render(r.video,r.width,r.height);feedAudio(r.pcm,r.rate);$('fps').textContent=`${r.width}×${r.height} · ${info.fps.toFixed(2)} Hz${ff?' · ⏩ fast forward':''}`;})
   .catch(e=>console.error(e)).finally(()=>{inFlight=false;});}
@@ -299,6 +306,8 @@ function fitCanvas(){const w=canvas.width,h=canvas.height;if(pref('integer','0')
 window.addEventListener('resize',fitCanvas);document.addEventListener('fullscreenchange',fitCanvas);
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';applyScreen();if(!core)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;setOption('wswan_60hz_mode',on?'enabled':'disabled');}
 for(const k of ['lcd','blend'])$('opt-'+k).onchange=e=>{savePref(`${k}.${coreName}`,e.target.checked?'1':'0');applyScreen();message(`${k==='lcd'?'LCD colours':'Frame blending'} ${e.target.checked?'on':'off'} (${CORES[coreName].label})`);};
+$('fps-toggle').onclick=e=>{const on=pref('showfps','0')!=='1';savePref('showfps',on?'1':'0');showFps(on);e.currentTarget.blur();};
+showFps(pref('showfps','0')==='1');
 $('opt-integer').onchange=e=>{savePref('integer',e.target.checked?'1':'0');fitCanvas();};
 $('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
 /* The picker gives the keyboard back to the game: a focused radio button would take the arrow keys. */
