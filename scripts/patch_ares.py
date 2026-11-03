@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 # SPDX-License-Identifier: GPL-2.0-only
-"""Small source changes so ares builds for WebAssembly (Emscripten).
+"""Small source changes so ares builds and runs well in WebAssembly (Emscripten).
 
 ares' nall library detects the platform and CPU architecture at compile time
 and stops on anything it does not know. WebAssembly is treated as a POSIX
 ("Linux") platform with a generic little-endian architecture: nothing in the
-WonderSwan core depends on a specific CPU. The patch is idempotent.
+WonderSwan core depends on a specific CPU. sljit is left out, frames are drawn
+without a video thread, and the idle serial port wakes less often (see below).
+The patch is idempotent.
 """
 import pathlib, sys
 
@@ -48,5 +50,27 @@ if new not in s:
     if s.count(old) != 1:
         sys.exit(f'patch_ares: pattern not found once in {p}: {old!r}')
     s = s.replace(old, new)
+# ares draws each finished frame on a separate video thread. WebAssembly here has no threads,
+# so the emulator would wait forever for it: draw in the emulation thread instead, as ares'
+# own non-threaded mode does.
+old = '    static constexpr bool Threaded = true;\n'
+new = '#if defined(__wasm__)\n    static constexpr bool Threaded = false;\n#else\n    static constexpr bool Threaded = true;\n#endif\n'
+if new not in s:
+    if s.count(old) != 1:
+        sys.exit(f'patch_ares: pattern not found once in {p}: {old!r}')
+    s = s.replace(old, new)
 p.write_text(s)
-print('patch_ares: intrinsics.hpp and ares.hpp patched')
+
+# The serial port thread wakes every 80 cycles even when the port is off, which costs ~500
+# cothread switches per frame - expensive in WebAssembly (see scripts/build_ares.sh). There is
+# no link cable in the browser, so while the port is disabled it wakes every 5120 cycles
+# (1.7 ms) instead; once a game enables it, timing is unchanged.
+p = root / 'ares/ws/serial/serial.cpp'
+s = p.read_text()
+old, new = 'auto Serial::main() -> void {\n  step(80);\n', 'auto Serial::main() -> void {\n  step(state.enable ? 80 : 80 * 64);\n'
+if new not in s:
+    if s.count(old) != 1:
+        sys.exit(f'patch_ares: pattern not found once in {p}: {old!r}')
+    s = s.replace(old, new)
+p.write_text(s)
+print('patch_ares: intrinsics.hpp, ares.hpp and ws/serial/serial.cpp patched')

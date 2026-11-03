@@ -56,11 +56,11 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
 
   const black = JSON.stringify(pixel());
   const seen = {};
-  for (const [bit, channel] of [[4, 0], [7, 0], [5, 0], [6, 0], [13, 2], [11, 2], [12, 2], [10, 2], [3, 1], [8, 1], [0, 1]]) {
+  // ares emulates the LCD's colour response, so each button gives a distinct mix, not a pure channel.
+  for (const bit of [4, 7, 5, 6, 13, 11, 12, 10, 3, 8, 0]) {
     api.input(1 << bit); frames(4);
     const px = pixel(); seen[bit] = px;
     api.input(0); frames(4);
-    if (!(px[channel] > 0 && px.every((v, k) => k === channel || v === 0))) console.log(`#   bit ${bit}: ${px}`);
   }
   const distinct = new Set(Object.values(seen).map(String)).size;
   check(distinct === 11 && !Object.values(seen).some(px => JSON.stringify(px) === black), `all 11 buttons reach the core (${distinct} distinct colours)`);

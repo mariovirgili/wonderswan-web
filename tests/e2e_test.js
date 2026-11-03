@@ -186,8 +186,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
 
   // 5. Switch to the ares core from the picker at the top, then run the test ROM on it.
   await page.click('.core-picker input[value=ares]');
-  await page.waitForFunction(() => /ares core ready/.test(document.getElementById('status').textContent), null, { timeout: 60000 });
-  check(true, 'ares core loads from the picker');
+  await page.waitForFunction(() => coreName === 'ares' && !coreBusy, null, { timeout: 60000 });
+  const moved = await page.textContent('#status');
+  check(/^Loaded Game \(Japan\)\.WSC/.test(moved), `ares core loads from the picker and takes over the running game (${moved})`);
   check(await page.evaluate(() => localStorage.getItem('swanweb.core')) === 'ares', 'core choice is remembered');
   await pick('input-test.wsc', ROM);
   await dialogOpen();

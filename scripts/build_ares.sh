@@ -79,8 +79,13 @@ PY
 
 rm -f "$OUT/core-ares.js" "$OUT/core-ares.wasm"
 EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_set_input","_ws_get_video","_ws_get_width","_ws_get_height","_ws_get_audio","_ws_get_audio_frames","_ws_get_sample_rate","_ws_get_fps","_ws_get_save_size","_ws_get_save","_ws_set_save","_ws_reset","_ws_prepare_state","_ws_get_state_size","_ws_save_state","_ws_load_state","_ws_shutdown","_ws_set_option"]'
+# Asyncify instruments every function that may be on the stack when a cothread switches, which
+# slows it down. These functions never are (no switch can happen inside them), so they are left
+# uninstrumented: drawing, bus and ROM reads, sound channels, ares' video/audio nodes, nall, and
+# the host's callbacks. Measured: about 20% faster per frame.
+ASYNCIFY_REMOVE='["ares::WonderSwan::PPU::Screen::*","ares::WonderSwan::PPU::fetch*","ares::WonderSwan::PPU::color*","ares::WonderSwan::Bus::*","ares::WonderSwan::Cartridge::readROM*","ares::WonderSwan::APU::Channel*","ares::WonderSwan::APU::output*","ares::Platform::*","ares::Core::Video::*","ares::Core::Audio::*","nall::*","*Host::*"]'
 em++ -O3 "$OBJ"/*.o \
-  -sASYNCIFY=1 -sASYNCIFY_STACK_SIZE=65536 \
+  -sASYNCIFY=1 "-sASYNCIFY_REMOVE=$ASYNCIFY_REMOVE" \
   -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=createAres \
   -sENVIRONMENT=web,node -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
   -sSTACK_SIZE=1048576 -sFILESYSTEM=0 -sASSERTIONS=0 \

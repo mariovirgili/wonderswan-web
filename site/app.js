@@ -142,6 +142,7 @@ function pref(key,fallback){try{return localStorage.getItem('swanweb.'+key)??fal
 function savePref(key,value){try{localStorage.setItem('swanweb.'+key,value)}catch{}}
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}
 $('opt-patches').onchange=e=>{savePref('patches',e.target.checked?'1':'0');message(e.target.checked?'Translation patches will be offered':'Translation patch lookup off');};
-for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{if(e.target.checked)useCore(e.target.value);};
+/* The picker gives the keyboard back to the game: a focused radio button would take the arrow keys. */
+for(const r of document.querySelectorAll('input[name=core]'))r.onchange=e=>{e.target.blur();if(e.target.checked)useCore(e.target.value);};
 $('opt-60hz').onchange=e=>{savePref('60hz',e.target.checked?'1':'0');applyOptions();bank=0;message(e.target.checked?'60 Hz mode on':'Native 75 Hz mode');};
 requestAnimationFrame(loop);startup();

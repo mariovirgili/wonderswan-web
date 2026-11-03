@@ -95,9 +95,14 @@ emulation code:
 
 - **Cothreads.** ares runs the CPU, video and sound chips as cooperative threads (libco), and WebAssembly cannot switch
   stacks. `src/libco_emscripten.c` is a libco backend on Emscripten fibers, linked with Asyncify. Every switch unwinds
-  and rewinds a stack, so ares costs more CPU than Mednafen; `tests/ares_core_test.js` prints the time per frame.
-- **Platform.** `scripts/patch_ares.py` lets ares' `nall` library recognise WebAssembly and leaves out `sljit` (the JIT
-  of other ares cores); `src/ares_stubs.cpp` replaces the GDB server's sockets and the x86 CPU-feature probe.
+  and rewinds a stack, so ares costs more CPU than Mednafen; `tests/ares_core_test.js` prints the time per frame. The
+  pictures match a native ares build pixel for pixel.
+- **Platform.** `scripts/patch_ares.py` lets ares' `nall` library recognise WebAssembly, leaves out `sljit` (the JIT of
+  other ares cores) and draws frames without ares' separate video thread; `src/ares_stubs.cpp` replaces the GDB
+  server's sockets, the x86 CPU-feature probe and thread naming.
+- **Speed.** Asyncify instrumentation is left off the code that can never be on the stack at a switch, and the serial
+  port (there is no link cable) wakes every 5120 cycles instead of every 80 while a game keeps it disabled. One frame
+  takes about 6–8 ms in Chrome or Node on a desktop CPU, against the 13.25 ms the console allows.
 - **Host.** `src/ares_host.cpp` implements ares' `Platform` interface behind the same `ws_*` API as `src/bridge.c`. It
   builds the cartridge description from the ROM footer, as ares' own loader does, and — since no boot ROM is shipped —
   sets what the boot ROM leaves behind (LCD on, cartridge bus width and speed, sound output, orientation). It shows
