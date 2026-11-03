@@ -173,16 +173,11 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.click('#keys-dialog button[value=done]');
   await page.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 5000 }).catch(() => {});
   const remapState = () => page.evaluate(() => ({ open: [...document.querySelectorAll('dialog[open]')].map(d => d.id), focus: document.activeElement?.id || document.activeElement?.tagName,
-    frames: framesRun, paused, key: keyMap.KeyK, events: window.__keys }));
+    frames: framesRun, paused, key: keyMap.KeyK }));
   const before = await remapState();
   // Hold a key and wait (up to 2 s; CI machines are slow) until the picture shows the A colour.
-  await page.evaluate(() => { window.__keys = []; addEventListener('keydown', e => __keys.push(`${e.code}${e.repeat ? '(r)' : ''}:${e.defaultPrevented}`));
-    addEventListener('keyup', e => __keys.push(`up:${e.code}`)); addEventListener('blur', () => __keys.push('blur'));
-    const c = clearInput, r = release; clearInput = () => { __keys.push('clear'); c(); }; release = b => { __keys.push(`release${b}`); r(b); }; });
   const holdFor = async key => {
     await page.keyboard.down(key);
-    await page.waitForTimeout(50);
-    await page.evaluate(() => __keys.push(`mask=${inputMask()}`));
     let c = null;
     for (let t = 0; t < 20; t++) { await page.waitForTimeout(100); c = JSON.stringify(await colour()); if (c === JSON.stringify(expect.KeyX)) break; }
     await page.keyboard.up(key); await page.waitForTimeout(200);

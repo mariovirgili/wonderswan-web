@@ -219,9 +219,9 @@ function startCapture(kind,action,button){stopCapture();button.textContent=kind=
   const poll=()=>{for(const p of navigator.getGamepads?.()||[]){if(!p)continue;for(let i=0;i<p.buttons.length;i++){if(p.buttons[i].pressed&&!held.has(i)){const c=capture;capture=null;c.stop();assign(padBinds,i);return;}if(!p.buttons[i].pressed)held.delete(i);}}
    if(performance.now()-t0>15000){stopCapture();return;}raf=requestAnimationFrame(poll);};raf=requestAnimationFrame(poll);
   capture={kind,action,stop:()=>{cancelAnimationFrame(raf);window.removeEventListener('keydown',onEsc,true);}};}}
-$('remap').onclick=()=>{renderKeysDialog();$('keys-dialog').showModal();};
+$('remap').onclick=()=>{clearInput();renderKeysDialog();$('keys-dialog').showModal();};// keys are ignored while it is open
 $('keys-reset').onclick=()=>{stopCapture();keyBinds={...DEFAULT_KEYS};padBinds={...DEFAULT_PAD};saveBinds();message('Keys and gamepad buttons reset');};
-$('keys-dialog').addEventListener('close',()=>{stopCapture();clearInput();});
+$('keys-dialog').addEventListener('close',()=>stopCapture());// not clearInput(): the event can come after the next key press
 $('keys-dialog').addEventListener('cancel',e=>{if(capture){e.preventDefault();stopCapture();}});
 window.addEventListener('blur',()=>{clearInput();ffKey=ffTouch=false;});
 {const ffb=$('ff'),on=e=>{e.preventDefault();ffb.setPointerCapture?.(e.pointerId);ffTouch=true;ffb.classList.add('pressed');},off=e=>{e.preventDefault();ffTouch=false;ffb.classList.remove('pressed');};
