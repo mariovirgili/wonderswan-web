@@ -149,7 +149,19 @@ async function digest(bytes){const hash=await crypto.subtle.digest('SHA-256',byt
 function openDB(){return new Promise((resolve,reject)=>{if(!indexedDB){resolve(null);return;}const req=indexedDB.open('swanweb-save-v1',2);req.onupgradeneeded=()=>{const db=req.result;for(const s of ['sram','states'])if(!db.objectStoreNames.contains(s))db.createObjectStore(s);};req.onerror=()=>reject(req.error);req.onsuccess=()=>resolve(req.result);});}
 async function store(key,bytes,os='sram'){if(!key||!(bytes?.length||bytes?.state))return;const db=await openDB();if(!db)return;await new Promise((resolve,reject)=>{const tx=db.transaction(os,'readwrite');tx.objectStore(os).put(bytes,key);tx.oncomplete=resolve;tx.onerror=()=>reject(tx.error)});db.close();}
 async function retrieve(key,os='sram'){const db=await openDB();if(!db)return null;const data=await new Promise((resolve,reject)=>{const tx=db.transaction(os);const req=tx.objectStore(os).get(key);req.onsuccess=()=>resolve(req.result||null);req.onerror=()=>reject(req.error)});db.close();return data;}
-async function persistRam(){if(!romLoaded||!romKey||!info.saveSize)return;const key=romKey,bytes=await core.call('getSave');if(bytes?.length)await store(key,bytes);}
+/* Battery saves between emulators. All three cores give the cartridge's SRAM or EEPROM as it is (the
+ * EEPROM as 16-bit words, low byte first, in all of them), but for header code 01 (a 64 Kbit SRAM) Mednafen
+ * keeps 8 KB, the real chip, and ares and Mesen 32 KB. Saves are stored and exported at the real chip's
+ * size and fitted to the running core's size on load: a smaller save is repeated (the chip is mirrored
+ * across the larger space), a larger one cut. A save that does not fit is never overwritten. */
+const CHIP_SIZES={1:8192,2:32768,3:131072,4:262144,5:524288,0x10:128,0x20:2048,0x50:1024};
+const chipSize=rom=>rom?.length>=16?CHIP_SIZES[rom[rom.length-5]]||0:0;
+function fitSave(bytes,size){if(!bytes?.length||!size)return null;if(bytes.length===size)return bytes;
+ if(size%bytes.length===0){const out=new Uint8Array(size);for(let o=0;o<size;o+=bytes.length)out.set(bytes,o);return out;}
+ if(bytes.length%size===0)return bytes.slice(0,size);return null;}
+let saveKey='';// where this game's battery save is kept: romKey, or romKey|size when the stored one did not fit
+async function persistRam(){if(!romLoaded||!saveKey||!info.saveSize)return;const bytes=await core.call('getSave');
+ if(bytes?.length)await store(saveKey,saveKey===romKey?fitSave(bytes,info.chipSize)||bytes:bytes);}
 /* An archive with several ROMs: let the player choose one. Resolves to {name, bytes} or null. */
 function pickRom(archiveName,roms){const dlg=$('rom-dialog'),list=$('rom-list');$('rom-archive').textContent=archiveName;list.replaceChildren();
  roms.forEach((r,k)=>{const l=document.createElement('label');l.className='patch-item';const i=document.createElement('input');i.type='radio';i.name='rom';i.value=String(k);i.checked=k===0;
@@ -172,20 +184,27 @@ async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);i
   await startRom(bytes,name,patchNote);}
  catch(e){console.error(e);paused=wasPaused;message('Could not load ROM: '+e.message);}}
 /* Run a ROM (already patched) on the current core and restore its battery save. */
-async function startRom(bytes,name,note){await persistRam();if(romLoaded)await core.call('unload');romLoaded=false;enabled(false);clearInput();
+async function startRom(bytes,name,note){await persistRam();if(romLoaded)await core.call('unload');romLoaded=false;saveKey='';enabled(false);clearInput();
  romKey=await digest(bytes);romName=name;current={bytes,name,note};const r=await core.call('load',{rom:bytes});if(!r.ok)throw Error('Core rejected the ROM');
  info={width:r.width,height:r.height,fps:r.fps,rate:r.rate,saveSize:r.saveSize};lastVideo=null;msPerFrame=0;romLoaded=true;
- const saved=await retrieve(romKey);if(saved&&saved.length===info.saveSize&&await core.call('setSave',{bytes:saved}))message(`Loaded ${romName}${note} · battery save restored`);else message(`Loaded ${romName}${note}`);
+ info.chipSize=chipSize(bytes);saveKey=romKey;let saved=await retrieve(romKey),restored='';
+ if(saved&&info.saveSize){const fit=fitSave(saved,info.saveSize);
+  if(!fit){saveKey=`${romKey}|${info.saveSize}`;saved=await retrieve(saveKey);// kept apart: the other save stays as it is
+   if(saved?.length===info.saveSize&&await core.call('setSave',{bytes:saved}))restored=' · battery save restored';
+   else restored=` · the battery save (${kb(saved?.length||0)}) does not fit this emulator (${kb(info.saveSize)}) and is kept as it is`;}
+  else if(await core.call('setSave',{bytes:fit}))restored=fit.length===saved.length?' · battery save restored':` · battery save restored (${kb(saved.length)} → ${kb(fit.length)})`;}
+ message(`Loaded ${romName}${note}${restored}`);
  enabled(true);paused=false;$('pause').textContent='Pause';bank=0;nextAudioTime=0;audioNode?.port.postMessage('reset');overlay.hidden=true;refreshSlots();}
 function download(bytes,name){if(!bytes?.length){message('No data available to export');return;}const url=URL.createObjectURL(new Blob([bytes],{type:'application/octet-stream'}));const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),1000);}
+function kb(n){return n>=1024?`${n/1024} KB`:`${n} bytes`;}
 function stem(){return romName.replace(/\.[^.]+$/,'')||'wonderswan';}
 $('rom').addEventListener('change',e=>{loadRom(e.target.files[0]);e.target.value='';});
 $('pause').onclick=()=>{paused=!paused;bank=0;$('pause').textContent=paused?'Resume':'Pause';message(paused?'Paused':'Running');};
 $('reset').onclick=async()=>{await core.call('reset');message('Console reset');};
 $('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.querySelector('.screen-wrap').requestFullscreen?.();};
 $('sound').onclick=toggleSound;$('volume').oninput=e=>{volume=Number(e.target.value)/100;if(audioGain)audioGain.gain.value=volume;};
-$('export-save').onclick=async()=>download(await core.call('getSave'),stem()+'.sav');
-$('import-save').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());if(await core.call('setSave',{bytes:b})){message('SRAM imported');await persistRam();}else message(`SRAM size mismatch; expected ${info.saveSize} bytes`);}e.target.value='';};
+$('export-save').onclick=async()=>{const b=await core.call('getSave');download(fitSave(b,info.chipSize)||b,stem()+'.sav');};// at the real chip's size
+$('import-save').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer()),fit=fitSave(b,info.saveSize);if(fit&&await core.call('setSave',{bytes:fit})){message(fit.length===b.length?'SRAM imported':`SRAM imported (${kb(b.length)} → ${kb(fit.length)})`);await persistRam();}else message(`SRAM size mismatch: ${kb(b.length)}, expected ${kb(info.saveSize)}${info.chipSize&&info.chipSize!==info.saveSize?` or ${kb(info.chipSize)}`:''}`);}e.target.value='';};
 $('export-state').onclick=async()=>{const s=await core.call('saveState');if(s?.length)download(s,stem()+'.state');else message('State save failed');};
 $('import-state').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer());try{const ok=await core.call('loadState',{bytes:b});message(ok?'State restored':'State rejected (different ROM/core?)');}catch(err){message(err.message)}}e.target.value='';};
 window.addEventListener('keydown',e=>{if(/^(INPUT|TEXTAREA|SELECT)$/.test(document.activeElement?.tagName)||document.querySelector('dialog[open]'))return;

@@ -39,6 +39,10 @@ leave your browser.
   75.47 Hz.
 - **Battery saves** kept automatically in the browser, per ROM *and* per patch; **export / import** of SRAM and
   **save states**.
+- **Battery saves move between emulators.** The three cores store the cartridge's SRAM / EEPROM the same way, but
+  for games with a 64 Kbit SRAM (header code 01) Mednafen keeps 8 KB, the real chip, and ares and Mesen 32 KB. Saves
+  are kept and exported at the real chip's size and fitted to the chosen emulator when the game starts, so a save
+  made with one core carries on in the others; **Import SRAM** takes either size. (Save states stay per emulator.)
 - **Controls** for keyboard, gamepad and touch, including the WonderSwan's second (Y) direction pad and screen rotation.
   **Change keys and gamepad buttons** remaps every button to another key or gamepad button; the choice is kept in the browser.
 - **Emulation in a Web Worker**, so the page stays responsive while the core works and the core is not slowed down by

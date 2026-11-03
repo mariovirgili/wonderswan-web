@@ -280,9 +280,16 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.click('#patch-dialog button[value=original]');
   await loaded();
   await page.waitForTimeout(500);
-  const ai = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, fps: info.fps, sixty: document.getElementById('opt-60hz').disabled }));
+  const ai = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, fps: info.fps, sixty: document.getElementById('opt-60hz').disabled, status: status.textContent }));
   check(ai.w === 224 && ai.h === 144 && ai.save === 32768 && Math.abs(ai.fps - 75.47) < .1 && ai.sixty,
     `test ROM runs on ares (${ai.w}x${ai.h}, ${ai.save} B SRAM, ${ai.fps.toFixed(2)} Hz, 60 Hz option off)`);
+  // Saves between emulators: Mednafen's 8 KB save (header code 01) is fitted to ares' 32 KB; it is still
+  // exported and kept in the browser at the real chip's 8 KB.
+  check(/battery save restored \(8 KB → 32 KB\)/.test(ai.status), `the Mednafen battery save is converted for ares (${ai.status})`);
+  const [savDl] = await Promise.all([page.waitForEvent('download'), page.click('#export-save')]);
+  const savLen = require('fs').statSync(await savDl.path()).size;
+  const kept = await page.evaluate(async () => { await persistRam(); return (await retrieve(romKey)).length; });
+  check(savLen === 8192 && kept === 8192, `SRAM exported and kept at the chip's size under ares (${savLen} / ${kept} bytes)`);
   let aresKeys = 0;
   for (const code of ['ArrowUp', 'KeyW', 'KeyX', 'Enter']) {
     const idle = JSON.stringify(await colour());
@@ -355,7 +362,8 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   // Back to Mednafen: the running game moves with it.
   await page.click('.core-picker input[value=beetle]');
   await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && !coreBusy && info.saveSize === 8192, null, { timeout: 30000 });
-  check(true, 'switching back to Mednafen keeps the running game');
+  const backStatus = await page.textContent('#status');
+  check(/battery save restored/.test(backStatus), `switching back to Mednafen keeps the running game and its battery save (${backStatus})`);
 
   check(problems.length === 0, `no console errors, page errors, failed requests or CSP violations${problems.length ? ': ' + problems.join(' / ') : ''}`);
   await browser.close();
