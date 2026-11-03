@@ -177,6 +177,41 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   const p2 = await page.evaluate(() => ({ save: api.saveSize(), status: status.textContent }));
   check(p2.save === 32768 && /patched with mario-translation v0\.9/.test(p2.status), `patch applied on the fly (${p2.status})`);
 
+  // 2b. A patch file from this computer, applied to the ROM as loaded (BPS checks its source CRC).
+  await pick('input-test.wsc', ROM);
+  await dialogOpen();
+  await page.click('#patch-dialog button[value=original]');
+  await loaded();
+  await page.setInputFiles('#patch-file', { name: 'my-wip.bps', mimeType: 'application/octet-stream', buffer: BPS });
+  await page.waitForFunction(() => /patched with local file my-wip\.bps/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
+  const lp = await page.evaluate(() => ({ save: api.saveSize(), name: romName }));
+  check(lp.save === 32768 && lp.name === 'input-test [my-wip].wsc', `local patch file applied (${lp.name}, ${lp.save} B SRAM)`);
+  await page.setInputFiles('#patch-file', { name: 'junk.bps', mimeType: 'application/octet-stream', buffer: Buffer.from('not a patch') });
+  await page.waitForFunction(() => /junk\.bps failed/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
+  check(true, 'a file that is not a patch is refused');
+
+  // 2c. Quick save / load (F5 / F7) in slot 2, and fast forward (Space).
+  await page.keyboard.press('2');
+  await page.keyboard.press('F5');
+  await page.waitForFunction(() => /Saved to slot 2/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
+  const label = await page.evaluate(() => document.getElementById('slot').selectedOptions[0].textContent);
+  await page.keyboard.press('F7');
+  await page.waitForFunction(() => /Loaded slot 2/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
+  const qs = await page.evaluate(async () => {
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    paused = true; await quickSave(); const before = wasm.HEAPU8[api.save()];
+    paused = false; await w(300); paused = true;
+    await quickLoad(); const after = wasm.HEAPU8[api.save()]; paused = false;
+    return { before, after };
+  });
+  check(qs.before === qs.after && /^Slot 2 · \d/.test(label), `quick save (F5) and load (F7) restore exactly (${label})`);
+  await page.keyboard.down('Space');
+  await page.waitForTimeout(300);
+  const ffOn = /fast forward/.test(await page.textContent('#fps'));
+  await page.keyboard.up('Space');
+  await page.waitForTimeout(300);
+  check(ffOn && !/fast forward/.test(await page.textContent('#fps')), 'fast forward while Space is held');
+
   // 3. The ROM inside a .zip.
   await pick('input-test.zip', makeZip('sub/input-test.wsc', ROM));
   await dialogOpen();
@@ -225,6 +260,16 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     return { ok: !!ok && !!ld, same: before === after, n };
   });
   check(ast.ok && ast.same, `ares save state restores exactly (${ast.n} bytes)`);
+  // Screen options: ares imitates the LCD by default; turning LCD colours off changes the picture.
+  const lcdOn = await page.evaluate(() => [document.getElementById('opt-lcd').checked, document.getElementById('opt-blend').checked, document.getElementById('opt-lcd').disabled]);
+  await page.keyboard.down('ArrowUp');  // the test ROM paints the keypad bits: a colour to compare
+  await page.waitForTimeout(400);
+  const shotA = JSON.stringify(await colour());
+  await page.evaluate(() => { const b = document.getElementById('opt-lcd'); b.checked = false; b.dispatchEvent(new Event('change')); });
+  await page.waitForTimeout(400);
+  const shotB = JSON.stringify(await colour());
+  await page.keyboard.up('ArrowUp');
+  check(lcdOn[0] && lcdOn[1] && !lcdOn[2] && shotA !== shotB, `ares screen options: on by default, LCD colours can be turned off (${shotA} -> ${shotB})`);
   // 6. Mesen 2: the running game moves over; then the same checks, including all four Y-pad keys.
   await page.click('.core-picker input[value=mesen]');
   await page.waitForFunction(() => coreName === 'mesen' && !coreBusy, null, { timeout: 60000 });
@@ -252,6 +297,20 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     return { ok: !!ok && !!ld, same: before === after, n };
   });
   check(mst.ok && mst.same, `Mesen save state restores exactly (${mst.n} bytes)`);
+  // Mesen: LCD imitation off by default, can be turned on; integer scaling sizes the picture by whole numbers.
+  const mOff = await page.evaluate(() => !document.getElementById('opt-lcd').checked && !document.getElementById('opt-blend').checked);
+  await page.keyboard.down('ArrowUp');
+  await page.waitForTimeout(400);
+  const mA = JSON.stringify(await colour());
+  await page.evaluate(() => { const b = document.getElementById('opt-lcd'); b.checked = true; b.dispatchEvent(new Event('change')); });
+  await page.waitForTimeout(400);
+  const mB = JSON.stringify(await colour());
+  await page.keyboard.up('ArrowUp');
+  check(mOff && mA !== mB, `Mesen screen options: off by default, LCD colours can be turned on (${mA} -> ${mB})`);
+  const scale = await page.evaluate(() => { const b = document.getElementById('opt-integer'); b.checked = true; b.dispatchEvent(new Event('change'));
+    const w = parseFloat(canvas.style.width), h = parseFloat(canvas.style.height); b.checked = false; b.dispatchEvent(new Event('change'));
+    return { w, h, cleared: canvas.style.width === '' }; });
+  check(scale.w % 224 === 0 && scale.h % 144 === 0 && scale.w / 224 === scale.h / 144 && scale.cleared, `integer scaling (${scale.w}x${scale.h})`);
 
   // Back to Mednafen: the running game moves with it.
   await page.click('.core-picker input[value=beetle]');

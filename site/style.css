@@ -20,3 +20,11 @@
 .core-info strong{color:#fff;font-size:13px}
 .core-info ul{margin:4px 0 0;padding-left:18px}
 .core-info li{margin:2px 0}
+/* Patch file button, fast forward, quick-save slots, screen options */
+.file-button.disabled{opacity:.36;cursor:not-allowed;pointer-events:none}
+.small-buttons .ff{flex:.6;font-size:13px}
+.quick{display:grid;grid-template-columns:1.1fr 1fr 1fr;gap:8px;margin-top:8px}
+.quick select{font:inherit;font-size:12px;font-weight:700;color:#e7ebfc;background:#222f4e;border:1px solid #40517b;border-radius:10px;padding:8px 6px;min-width:0}
+.quick button{font-size:12px;padding:10px 5px}
+.settings h3{font-size:.85rem;margin:16px 0 6px;color:#dfe5f7}
+.settings .check input:disabled+*,.settings .check:has(input:disabled){opacity:.5}

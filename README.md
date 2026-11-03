@@ -24,6 +24,12 @@ leave your browser.
 - **Three emulator cores.** Mesen (the default, and the fastest), Beetle/Mednafen or ares, picked at the top of the
   page. Switching keeps the running game and its battery save, so a translation can be checked on each; a choice made
   in the picker is remembered (`?core=mesen`, `?core=beetle` or `?core=ares` in the address also selects one).
+- **Your own patch files.** **Apply patch file** takes a `.bps` / `.ips` from your computer and applies it to the ROM
+  as it was loaded, so a work-in-progress translation can be tried at once (BPS checks it is made for that ROM).
+- **Fast forward and quick saves.** Hold Space (or ⏩) to run up to 4× faster through dialogue; F5 / F7 quick-save and
+  load, in three slots (1–3) kept in the browser per ROM and per emulator.
+- **Screen options.** With Mesen and ares, LCD colours and frame blending (an imitation of the real LCD, on by default
+  in ares, off in Mesen) can be switched; integer scaling keeps every pixel the same size.
 - **ROMs in archives.** `.ws`, `.wsc`, `.pc2`, or the same inside `.zip` / `.7z` files. If an archive holds several
   ROMs, you pick one.
 - **Smooth on 60 Hz screens.** Optional 60 Hz mode (on by default, Mednafen only) instead of the console's native
@@ -47,6 +53,9 @@ leave your browser.
 | A / B | X / Z | A / B (bottom / right face buttons) |
 | Start | Enter | Start |
 | Rotate screen | Shift | Select |
+| Fast forward (hold) | Space | stick press (L3 / R3) |
+| Quick save / quick load | F5 / F7 | |
+| Quick-save slot | 1 / 2 / 3 | |
 
 Some games use the Y pad; the touch controls under the screen have both pads. With ares and Mesen, vertical games turn
 the screen by themselves; Rotate switches between that and the other orientation. In **Options** you can turn off the

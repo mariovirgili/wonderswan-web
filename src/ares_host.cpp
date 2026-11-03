@@ -170,6 +170,16 @@ auto postBoot() -> void {
 
 }  // namespace
 
+/* Screen options: ares imitates the WonderSwan LCD with two settings of its PPU screen, on by
+ * default in ares - colour emulation (the LCD's colour response) and interframe blending (each
+ * frame mixed with the previous one, as the slow LCD did). Kept here and applied after each load. */
+namespace { bool colorEmulation = true, interframeBlending = true; }
+static void applyScreenOptions() {
+  if(!loaded) return;
+  if(auto s = host.root->find<Node::Setting::Boolean>("PPU/Screen/Color Emulation")) s->setValue(colorEmulation);
+  if(auto s = host.root->find<Node::Setting::Boolean>("PPU/Screen/Interframe Blending")) s->setValue(interframeBlending);
+}
+
 extern "C" {
 
 int ws_init(void) {
@@ -199,6 +209,7 @@ int ws_load(const void* data, size_t size) {
   host.root->power();
   postBoot();
   loaded = true;
+  applyScreenOptions();
   audioFrames = 0;
   return 1;
 }
@@ -277,9 +288,13 @@ int ws_load_state(const void* ptr, size_t n) {
   return host.root->unserialize(s) ? 1 : 0;
 }
 
-/* Options accepted for API compatibility with the Beetle host. */
+/* Options: ares_color_emulation / ares_interframe_blending ("enabled" / "disabled") and
+ * ares_pixel_accuracy. Others (e.g. Beetle's wswan_60hz_mode) are accepted and ignored. */
 int ws_set_option(const char* key, const char* value) {
   if(!key || !*key) return 0;
+  bool on = value && !strcmp(value, "enabled");
+  if(!strcmp(key, "ares_color_emulation")) { colorEmulation = on; applyScreenOptions(); return 1; }
+  if(!strcmp(key, "ares_interframe_blending")) { interframeBlending = on; applyScreenOptions(); return 1; }
   if(!strcmp(key, "ares_pixel_accuracy")) {
     ares::WonderSwan::option("Pixel Accuracy", value && !strcmp(value, "enabled") ? "true" : "false");
     return 1;

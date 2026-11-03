@@ -14,7 +14,9 @@
    mode. Native builds are unaffected (#ifdef __EMSCRIPTEN__).
 4. Speed: retro_run built a new video filter for every frame, and the WonderSwan filter builds
    NTSC tables in its constructor (~80% of the time). The filter is now kept for the loaded game.
-5. Rotation: the WonderSwan auto-rotate setting was never applied and the frame was never
+5. Screen: the WonderSwan options "LCD adjust colors" and "blend frames" were declared but never
+   read; they now reach Mesen's settings, so the page can turn them on.
+6. Rotation: the WonderSwan auto-rotate setting was never applied and the frame was never
    turned. Vertical games now turn by themselves (Mesen's own WsConsole rule), and Select - the
    page's Rotate key - switches to the other orientation, as with the other cores.
 
@@ -112,6 +114,25 @@ patch('''	RETRO_API void retro_unload_game()
 patch('''				wsCfg.ControllerHorizontal.Type = (_inputDevices[0] == DEVICE_GAMEPAD) ? ControllerType::WsController : ControllerType::None;
 ''', '''				wsCfg.ControllerHorizontal.Type = (_inputDevices[0] == DEVICE_GAMEPAD) ? ControllerType::WsController : ControllerType::None;
 				wsCfg.AutoRotate = true;  // web build: vertical games turn by themselves
+''')
+patch('''	void update_settings()
+	{
+		struct retro_variable var = { };
+''', '''	void update_settings()
+	{
+		struct retro_variable var = { };
+		// Web build: WonderSwan LCD colours and frame blending (Mesen's own settings, which its
+		// video filter reads every frame; the port declared the options but never read them).
+		if(_emu) {
+			WsConfig wsCfg = _emu->GetSettings()->GetWsConfig();
+			if(readVariable(MesenWsLcdAdjustColors, var)) {
+				wsCfg.LcdAdjustColors = string(var.value) == "enabled";
+			}
+			if(readVariable(MesenWsBlendFrames, var)) {
+				wsCfg.BlendFrames = string(var.value) == "enabled";
+			}
+			_emu->GetSettings()->SetWsConfig(wsCfg);
+		}
 ''')
 patch('''				setupDefaultMapping(wsCfg.ControllerHorizontal.Keys, 0);
 ''', '''				setupDefaultMapping(wsCfg.ControllerHorizontal.Keys, 0);
