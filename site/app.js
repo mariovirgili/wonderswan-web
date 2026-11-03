@@ -38,7 +38,15 @@ async function coreInstance(name){if(instances[name])return instances[name];cons
  if(typeof window[c.factory]!=='function')await loadScript(c.script);
  /* A core's stderr: Mesen's libretro front end reports normal progress there ('[libretro] …'). */
  const m=await window[c.factory]({locateFile:path=>'./'+path,printErr:t=>/^\[libretro\]/.test(t)?console.debug(t):console.error(t)});const a=bindApi(m);a.init();return instances[name]={wasm:m,api:a};}
-function showCore(name){for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const other=!!name&&name!=='beetle';$('opt-60hz').disabled=other;$('opt-60hz-note').hidden=!other;}
+/* What sets each core apart, shown next to the picker. The console runs at 75.47 Hz; most screens
+ * refresh at 60 Hz, so a core at native speed has about 1 frame in 5 that is never displayed. */
+const CORE_INFO={
+ mesen:{title:'Mesen 2',points:['Default. High accuracy, and the lightest on the CPU here (about 1.5–2.5 ms per frame), but the largest download (5.3 MB).','Screen: the picture as the console outputs it – plain colours, no frame blending.','Refresh: native 75.47 Hz. On a 60 Hz screen about 1 frame in 5 is not shown, so fast motion can look slightly uneven. Vertical games turn by themselves.']},
+ beetle:{title:'Beetle (Mednafen)',points:['The long-standing libretro core: smallest download (0.2 MB), light on the CPU, less accurate than the other two.','Screen: plain picture, no frame blending.','Refresh: the only core with the 60 Hz mode (Options) – it shows 4 of every 5 frames at an even 60.38 Hz, for smooth motion on 60 Hz screens; off, native 75.47 Hz. Vertical games are turned with Rotate.']},
+ ares:{title:'ares',points:['High accuracy: every chip runs in step with the others. The heaviest on the CPU (about 5–8 ms per frame; 0.8 MB download).','Screen: imitates the real LCD. Colours follow its duller, washed-out response, and each frame is blended with the previous one as the slow LCD did: flickering sprites and effects turn into steady half-tones, and fast motion leaves a slight trail.','Refresh: native 75.47 Hz (no 60 Hz mode); on a 60 Hz screen the blending softens the skipped frames. Vertical games turn by themselves.']},
+};
+function showCoreInfo(name){const box=$('core-info'),info=CORE_INFO[name];box.replaceChildren();if(!info)return;const t=document.createElement('strong');t.textContent=info.title;const ul=document.createElement('ul');for(const p of info.points){const li=document.createElement('li');li.textContent=p;ul.append(li);}box.append(t,ul);}
+function showCore(name){showCoreInfo(name);for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const other=!!name&&name!=='beetle';$('opt-60hz').disabled=other;$('opt-60hz-note').hidden=!other;}
 /* Switch emulator core. A running game moves to the new core with its battery save. */
 async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCore(coreName);return;}coreBusy=true;const wasPaused=paused;paused=true;
  try{message(`Loading ${CORES[name].label} WASM…`);const next=await coreInstance(name);

@@ -118,6 +118,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   const start = await page.evaluate(() => ({ core: coreName, order: [...document.querySelectorAll('.core-picker input')].map(i => i.value) }));
   check(start.core === 'mesen' && start.order.join() === 'mesen,beetle,ares', `page loads with Mesen, first in the picker (${start.core}; ${start.order.join(', ')})`);
   check(await page.evaluate(() => localStorage.getItem('swanweb.emulator')) === null, 'the default is not stored as a choice');
+  check(/^Mesen 2/.test(await page.textContent('#core-info')), 'the card next to the picker describes Mesen');
   // Mednafen for the checks below, chosen from the picker.
   await page.click('.core-picker input[value=beetle]');
   await page.waitForFunction(() => coreName === 'beetle' && !coreBusy && /Mednafen core ready/.test(document.getElementById('status').textContent), null, { timeout: 30000 });
@@ -196,6 +197,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   const moved = await page.textContent('#status');
   check(/^Loaded Game \(Japan\)\.WSC/.test(moved), `ares core loads from the picker and takes over the running game (${moved})`);
   check(await page.evaluate(() => localStorage.getItem('swanweb.emulator')) === 'ares', 'core choice is remembered');
+  check(/imitates the real LCD/.test(await page.textContent('#core-info')), 'the card follows the chosen core (ares)');
   await pick('input-test.wsc', ROM);
   await dialogOpen();
   await page.click('#patch-dialog button[value=original]');

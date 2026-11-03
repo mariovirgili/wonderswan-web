@@ -12,3 +12,11 @@
 .core-picker label:hover span{background:#1d2a47}
 .core-picker input:checked+span{background:#275ec0;color:#fff}
 .core-picker input:focus-visible+span{outline:2px solid #64d2f4;outline-offset:1px}
+/* Core picker + what sets the chosen core apart */
+.core-row{display:flex;flex-wrap:wrap;align-items:flex-start;gap:14px;margin-top:10px}
+.core-row .core-picker{margin:0;flex:none}
+.core-info{flex:1 1 360px;min-width:0;max-width:760px;font-size:12.5px;line-height:1.5;color:#bac5df;background:#11182b;border:1px solid #293653;border-radius:12px;padding:9px 14px}
+.core-info:empty{display:none}
+.core-info strong{color:#fff;font-size:13px}
+.core-info ul{margin:4px 0 0;padding-left:18px}
+.core-info li{margin:2px 0}

@@ -11,7 +11,8 @@
 <body>
 <main class="shell">
  <header><h1>WonderSwan <span>AI/MTL Tester</span></h1><p>WonderSwan &amp; WonderSwan Color · translation patches applied on the fly</p>
-  <fieldset class="core-picker"><legend>Emulator</legend><label><input type="radio" name="core" value="mesen" checked><span>Mesen</span></label><label><input type="radio" name="core" value="beetle"><span>Beetle (Mednafen)</span></label><label><input type="radio" name="core" value="ares"><span>ares</span></label></fieldset></header>
+  <div class="core-row"><fieldset class="core-picker"><legend>Emulator</legend><label><input type="radio" name="core" value="mesen" checked><span>Mesen</span></label><label><input type="radio" name="core" value="beetle"><span>Beetle (Mednafen)</span></label><label><input type="radio" name="core" value="ares"><span>ares</span></label></fieldset>
+  <div id="core-info" class="core-info" aria-live="polite"></div></div></header>
  <div class="layout">
  <section class="play-area" aria-label="Emulator">
   <div class="screen-wrap"><canvas id="screen" width="224" height="144" aria-label="WonderSwan screen"></canvas><div id="overlay">LOAD A ROM TO BEGIN</div></div>
