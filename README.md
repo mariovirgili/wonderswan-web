@@ -20,7 +20,10 @@ leave your browser.
   `.bps` / `.ips` patches published by mariovirgili, PokemonGoDB and Gand46. Matching patches are listed by author
   (mariovirgili first, then the others; each author separated by a thin bar) and by version, newest first, with
   language, format and a link to the release. The chosen patch is downloaded, verified and applied before the game
-  starts. **Play original** (or Esc) skips it.
+  starts. **Play original** (or Esc) skips it. Each patch's **release notes** can be opened in the window.
+- **Newer translation notice.** If the ROM you load is already a patched one and the same author has since published a
+  newer version of that translation, a notice under the screen says so and links the release: load the original ROM to
+  apply the new one.
 - **Three emulator cores.** Mesen (the default, and the fastest), Beetle/Mednafen or ares, picked at the top of the
   page. Switching keeps the running game and its battery save, so a translation can be checked on each; a choice made
   in the picker is remembered (`?core=mesen`, `?core=beetle` or `?core=ares` in the address also selects one).
@@ -37,6 +40,9 @@ leave your browser.
 - **Battery saves** kept automatically in the browser, per ROM *and* per patch; **export / import** of SRAM and
   **save states**.
 - **Controls** for keyboard, gamepad and touch, including the WonderSwan's second (Y) direction pad and screen rotation.
+  **Change keys** remaps every button to another key or gamepad button; the choice is kept in the browser.
+- **Emulation in a Web Worker**, so the page stays responsive while the core works and the core is not slowed down by
+  the page.
 - **Low-latency audio** (AudioWorklet), with an on/off toggle and volume.
 
 ## Using it
@@ -56,6 +62,9 @@ leave your browser.
 | Fast forward (hold) | Space | stick press (L3 / R3) |
 | Quick save / quick load | F5 / F7 | |
 | Quick-save slot | 1 / 2 / 3 | |
+
+These are the defaults. **Change keys** (next to the list of controls) lets you press a new key or gamepad button for
+each WonderSwan button; **Defaults** puts them back. F5, F7, 1–3, Esc and Tab stay reserved.
 
 Some games use the Y pad; the touch controls under the screen have both pads. With ares and Mesen, vertical games turn
 the screen by themselves; Rotate switches between that and the other orientation. In **Options** you can turn off the
@@ -165,7 +174,8 @@ files are never committed to `main`. Actions are pinned to commit SHAs and jobs 
 | --- | --- |
 | `src/bridge.c`, `src/libretro_min.h` | minimal libretro host in C for Mednafen and Mesen: video/audio/input, core options, SRAM, states, exported as `ws_*` |
 | `src/ares_host.cpp`, `src/ares_stubs.cpp`, `src/libco_emscripten.c` | the same `ws_*` API on ares; libco on Emscripten fibers |
-| `site/app.js` | frontend: main loop, rendering, audio, input, saves, options |
+| `site/app.js` | frontend: main loop, rendering, audio, input and remapping, saves, options |
+| `site/worker.js` | Web Worker that runs the chosen core and returns each batch of frames (picture and sound) |
 | `site/patches.js` | CRC32, BPS and IPS appliers, catalog lookup, patch chooser |
 | `site/archive.js` | `.zip` reader (browser `DecompressionStream`) and `.7z` through 7-Zip WASM |
 | `scripts/build.sh`, `scripts/build_ares.sh`, `scripts/patch_ares.py`, `scripts/build_mesen.sh`, `scripts/patch_mesen.py` | builds of the three cores |

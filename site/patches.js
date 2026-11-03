@@ -186,6 +186,39 @@ const SwanPatches = (() => {
     return n;
   };
 
+  /** The release notes of a patch (plain text from the catalog), folded. */
+  function notesBox(text) {
+    const box = el('details', { className: 'patch-notes' },
+      el('summary', { textContent: 'Release notes' }), el('div', { className: 'patch-notes-text', textContent: text }));
+    box.addEventListener('click', e => e.stopPropagation());  // opening the notes does not pick the patch
+    return box;
+  }
+
+  /* The version-less name of a patch plus the edition words anywhere in it, to tell the same
+   * translation apart from its other editions: "ring-infinity-en-special-1.0" -> "ring-infinity-en-special",
+   * "Densha_de_Go_2_EN_v0.4.21_CUMULATIVE" -> "densha_de_go_2_en", "X [T-Es v0.2.1 Color]" -> "x [t-es|color". */
+  const EDITION = /colou?r|mono|special|unlock|debug|cheat|trainer|test|extras?\b|stage.?sel|long.?names|wondergate/gi;
+  const family = v => {
+    const s = (v || '').toLowerCase(), base = s.replace(/[-_ .]*v?\d+(\.\d+)+.*$/, '').replace(/[-_ .]+$/, '');
+    const words = [...new Set((s.slice(base.length).match(EDITION) || []).map(w => w.replace(/[^a-z]/g, '').replace('colour', 'color')))].sort();
+    return [base, ...words].join('|');
+  };
+
+  /**
+   * For a ROM recognised as made by `made` (an entry of produced_by): the newest version of the same
+   * translation - same author, game and edition - if it is newer, looked up through the original
+   * ROM's catalog entry. Null if none, or if the catalog cannot tell.
+   */
+  async function newerVersion(made) {
+    if (!made?.source_crc32 || !made.version) return null;
+    let info;
+    try { info = await lookup(parseInt(made.source_crc32, 16)); } catch { return null; }
+    const same = (info?.patches || []).filter(p => p.source === made.source && p.game === made.game
+      && family(p.variant) === family(made.variant) && p.version && !p.requires_patched_rom);
+    same.sort((a, b) => cmpVersion(b.version, a.version));
+    return same.length && cmpVersion(same[0].version, made.version) > 0 ? same[0] : null;
+  }
+
   /** Show the choice. Resolves to the chosen entry, or null for "play original". */
   function choose(info, fileName) {
     const dlg = document.getElementById('patch-dialog'), list = document.getElementById('patch-list');
@@ -214,7 +247,8 @@ const SwanPatches = (() => {
         el('span', { className: 'patch-text' },
           el('strong', { textContent: p.game || p.variant }),
           el('span', { className: 'patch-variant', textContent: p.variant }),
-          el('span', { className: 'patch-meta' }, ...chips, el('span', { className: 'patch-src' }, 'by ', page)))));
+          el('span', { className: 'patch-meta' }, ...chips, el('span', { className: 'patch-src' }, 'by ', page)),
+          ...(p.notes ? [notesBox(p.notes)] : []))));
     });
     document.getElementById('patch-count').textContent =
       `${patches.length} patch${patches.length === 1 ? '' : 'es'} found for this ROM. Pick one to apply on the fly, or play the original.`;
@@ -246,11 +280,12 @@ const SwanPatches = (() => {
       return { bytes: rom, name: fileName, patch: null, crc };
     }
     const recognised = info?.produced_by?.[0];
+    const newer = recognised ? await newerVersion(recognised) : null;
     if (!info?.patches?.length) {
-      return { bytes: rom, name: fileName, patch: null, crc, recognised };
+      return { bytes: rom, name: fileName, patch: null, crc, recognised, newer };
     }
     const entry = await choose(info, fileName);
-    if (!entry) return { bytes: rom, name: fileName, patch: null, crc, recognised };
+    if (!entry) return { bytes: rom, name: fileName, patch: null, crc, recognised, newer };
     status(`Downloading ${entry.variant}…`);
     const patchBytes = await download(entry);
     status(`Applying ${entry.variant}…`);
@@ -259,6 +294,6 @@ const SwanPatches = (() => {
     return { bytes, name: `${stem} [${entry.variant}]${ext}`, patch: entry, crc, recognised };
   }
 
-  return { PREFERRED_OWNER, crc32, hex, applyBps, applyIps, apply, lookup, download, sortPatches, cmpVersion, offer, PatchError, REPO_BASE };
+  return { PREFERRED_OWNER, crc32, hex, applyBps, applyIps, apply, lookup, download, sortPatches, cmpVersion, offer, newerVersion, family, PatchError, REPO_BASE };
 })();
 if (typeof module !== 'undefined') module.exports = SwanPatches;

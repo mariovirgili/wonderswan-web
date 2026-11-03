@@ -66,9 +66,16 @@ const LOOKUP = {
       target_crc32: hex(crc32(PATCHED)), source: 'SomeoneElse/x', page: 'https://github.com/SomeoneElse/x' },
     { id: 'e2e1', game: 'E2E Test', variant: 'mario-translation', version: '0.9', language: 'en', format: 'bps', latest: true,
       url: PATCH_URL, sha256: require('crypto').createHash('sha256').update(BPS).digest('hex'), size: BPS.length,
-      target_crc32: hex(crc32(PATCHED)), source: 'mariovirgili/WonderSwanColor-AI_Translation', page: 'javascript:alert(1)' },
+      target_crc32: hex(crc32(PATCHED)), source: 'mariovirgili/WonderSwanColor-AI_Translation', page: 'javascript:alert(1)',
+      notes: 'Translated menus.\n<script>alert(1)</script> stays text.' },
   ],
 };
+
+// A ROM patched with an older version (v0.8) of the 'mario-translation' patch: the page names v0.9.
+const OLD_ROM = makeRom(0x03);
+const OLD_PATCHED = { schema: 1, crc32: hex(crc32(OLD_ROM)), size: OLD_ROM.length, names: [], patches: [], produced_by: [
+  { id: 'e2e0', game: 'E2E Test', variant: 'mario-translation', version: '0.8', language: 'en', format: 'bps', latest: false, superseded: true,
+    source_crc32: LOOKUP.crc32, target_crc32: hex(crc32(OLD_ROM)), source: 'mariovirgili/WonderSwanColor-AI_Translation' }] };
 
 // ------------------------------------------------------------------ server
 const TYPES = { '.html': 'text/html', '.js': 'text/javascript', '.css': 'text/css', '.wasm': 'application/wasm', '.json': 'application/json' };
@@ -107,9 +114,10 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   let lookups = 0;
   await page.route(CATALOG + 'lookup/crc32/*.json', route => {
     lookups++;
-    return route.request().url().endsWith(`/${LOOKUP.crc32}.json`)
-      ? route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(LOOKUP) })
-      : route.fulfill({ status: 404, body: '' });
+    const url = route.request().url();
+    if (url.endsWith(`/${LOOKUP.crc32}.json`)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(LOOKUP) });
+    if (url.endsWith(`/${OLD_PATCHED.crc32}.json`)) return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(OLD_PATCHED) });
+    return route.fulfill({ status: 404, body: '' });
   });
   await page.route(PATCH_URL, route => route.fulfill({ status: 200, contentType: 'application/octet-stream', body: BPS }));
 
@@ -136,6 +144,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   check(items[0] === '#mariovirgili1 patch' && items[1] === 'mario-translation' && items[2].startsWith('#SomeoneElse'),
     `patch dialog lists mariovirgili first, authors separated (${items.join(' | ')})`);
   check(await page.$eval('#patch-list a[href^="javascript:"]', () => true).catch(() => false) === false, 'non-https links from the catalog are not rendered as links');
+  const notes = await page.evaluate(() => ({ texts: [...document.querySelectorAll('#patch-list .patch-notes')].map(d => d.textContent), script: !!document.querySelector('#patch-list script') }));
+  check(notes.texts.length === 1 && /Translated menus\.\n<script>alert\(1\)<\/script> stays text\./.test(notes.texts[0]) && !notes.script,
+    'release notes shown, as plain text, for the patch that has them');
   await page.click('#patch-dialog button[value=original]');
   await loaded();
   const info = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, status: status.textContent }));
@@ -190,6 +201,12 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await loaded();
   const p2 = await page.evaluate(() => ({ save: info.saveSize, status: status.textContent }));
   check(p2.save === 32768 && /patched with mario-translation v0\.9/.test(p2.status), `patch applied on the fly (${p2.status})`);
+
+  // 2a. A ROM made with an older version of a translation: the newer one is named.
+  await pick('old-patched.wsc', OLD_ROM);
+  await loaded();
+  const notice = await page.evaluate(() => ({ hidden: document.getElementById('notice').hidden, text: document.getElementById('notice').textContent }));
+  check(!notice.hidden && /made with mario-translation v0\.8\. E2E Test v0\.9 is out/.test(notice.text), `newer version named (${notice.text})`);
 
   // 2b. A patch file from this computer, applied to the ROM as loaded (BPS checks its source CRC).
   await pick('input-test.wsc', ROM);

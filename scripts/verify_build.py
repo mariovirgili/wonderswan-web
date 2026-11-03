@@ -2,9 +2,9 @@
 """Static package checks; optional WASM header checks after build."""
 import pathlib, sys, re
 root=pathlib.Path(sys.argv[1] if len(sys.argv)>1 else pathlib.Path(__file__).resolve().parents[1]);site=root/'site'
-for name in ('index.html','app.js','style.css','patches.js','archive.js'):
+for name in ('index.html','app.js','worker.js','style.css','patches.js','archive.js'):
     assert (site/name).is_file(), f'Missing: {name}'
-html=(site/'index.html').read_text(); js=(site/'app.js').read_text(); bridge=(root/'src/bridge.c').read_text(); ares=(root/'src/ares_host.cpp').read_text()
+html=(site/'index.html').read_text(); js=(site/'app.js').read_text()+(site/'worker.js').read_text(); bridge=(root/'src/bridge.c').read_text(); ares=(root/'src/ares_host.cpp').read_text()
 for suffix in ('.ws','.wsc','.pc2'): assert suffix in html, suffix
 for func in ('ws_init','ws_load','ws_run','ws_get_video','ws_get_audio','ws_set_input','ws_get_save','ws_save_state'):
     assert re.search(r'\b'+func+r'\b',bridge),func

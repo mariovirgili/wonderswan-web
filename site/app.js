@@ -155,14 +155,19 @@ function pickRom(archiveName,roms){const dlg=$('rom-dialog'),list=$('rom-list');
  roms.forEach((r,k)=>{const l=document.createElement('label');l.className='patch-item';const i=document.createElement('input');i.type='radio';i.name='rom';i.value=String(k);i.checked=k===0;
   const t=document.createElement('span');t.className='patch-text';const s=document.createElement('strong');s.textContent=r.name.split('/').pop();const v=document.createElement('span');v.className='patch-variant';v.textContent=`${r.name} · ${(r.bytes.length/1024).toLocaleString()} KB`;t.append(s,v);l.append(i,t);list.append(l);});
  return new Promise(res=>{dlg.addEventListener('close',()=>{const c=list.querySelector('input[name=rom]:checked');res(dlg.returnValue==='ok'&&c?roms[+c.value]:null);},{once:true});dlg.returnValue='';dlg.showModal();$('rom-ok').focus();});}
-async function loadRom(file){if(!file||!core||coreBusy)return;if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
+/* A notice under the status line: this ROM was made with an older version of a translation. */
+function showNotice(n){const box=$('notice');box.replaceChildren();box.hidden=!n;if(!n)return;
+ box.append(`This ROM was made with ${n.made.variant} v${n.made.version}. ${n.newer.game||'The translation'} v${n.newer.version} is out: load the original ROM to apply it.`);
+ if(/^https:\/\//.test(n.newer.page||'')){const a=document.createElement('a');a.href=n.newer.page;a.target='_blank';a.rel='noopener noreferrer';a.textContent='Release page';box.append(' ',a);}}
+async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);if(!/\.(ws|wsc|pc2|zip|7z)$/i.test(file.name)){message('Unsupported file type: choose a .ws, .wsc, .pc2, .zip or .7z file');return;}
  const wasPaused=paused;try{paused=true;clearInput();let bytes=new Uint8Array(await file.arrayBuffer());let name=file.name,patchNote='';
   if(SwanArchive.isArchive(name)){message(`Opening ${name}…`);const roms=await SwanArchive.extractRoms(name,bytes);if(!roms.length)throw Error(`no .ws/.wsc/.pc2 ROM inside ${name}`);
    const r=roms.length===1?roms[0]:await pickRom(name,roms);if(!r){paused=wasPaused;message('Cancelled');return;}bytes=r.bytes;name=r.name.split('/').pop();}
   original={bytes,name};
   if(pref('patches','1')==='1'&&typeof SwanPatches!=='undefined'){try{const r=await SwanPatches.offer(bytes,name,message);bytes=r.bytes;name=r.name;
     if(r.patch)patchNote=` · patched with ${r.patch.variant}${r.patch.version?' v'+r.patch.version:''}`;
-    else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;}
+    else if(r.recognised)patchNote=` · recognised: ${r.recognised.game||''} ${r.recognised.variant}${r.recognised.version?' v'+r.recognised.version:''}`;
+    showNotice(r.newer?{made:r.recognised,newer:r.newer}:null);}
    catch(e){console.error(e);patchNote=` · PATCH FAILED (${e.message}), running the original ROM`;}}
   await startRom(bytes,name,patchNote);}
  catch(e){console.error(e);paused=wasPaused;message('Could not load ROM: '+e.message);}}

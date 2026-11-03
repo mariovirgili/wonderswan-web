@@ -50,6 +50,7 @@ jobs:
           node --check site/app.js
           node --check site/patches.js
           node --check site/archive.js
+          node --check site/worker.js
           node --check tests/core_test.js
           node tests/patches_test.js
           SEVENZIP_DIR=.build/7z-wasm/package node tests/archive_test.js
