@@ -171,6 +171,10 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.keyboard.press('k');
   const bound = await page.textContent('#keys-rows button.bind[data-kind=key][data-action="8"]');
   await page.click('#keys-dialog button[value=done]');
+  await page.waitForFunction(() => !document.querySelector('dialog[open]'), null, { timeout: 5000 }).catch(() => {});
+  const remapState = () => page.evaluate(() => ({ open: [...document.querySelectorAll('dialog[open]')].map(d => d.id), focus: document.activeElement?.id || document.activeElement?.tagName,
+    frames: framesRun, paused, key: keyMap.KeyK }));
+  const before = await remapState();
   // Hold a key and wait (up to 2 s; CI machines are slow) until the picture shows the A colour.
   const holdFor = async key => {
     await page.keyboard.down(key);
@@ -182,7 +186,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   const kA = await holdFor('k');
   const xA = await holdFor('x');
   const help = await page.textContent('#controls-help');
-  check(bound === 'K' && kA === JSON.stringify(expect.KeyX) && xA !== kA && /A = K/.test(help), `A remapped to K (${bound}; K gives ${kA}, X no longer does; help: "${help.match(/A = \w+/)?.[0]}")`);
+  check(bound === 'K' && kA === JSON.stringify(expect.KeyX) && xA !== kA && /A = K/.test(help), `A remapped to K (${bound}; K gives ${kA}, X no longer does; help: "${help.match(/A = \w+/)?.[0]}")${kA === JSON.stringify(expect.KeyX) ? '' : ' ' + JSON.stringify([before, await remapState()])}`);
   await page.click('#remap'); await page.click('#keys-reset'); await page.click('#keys-dialog button[value=done]');
   check(/A = X/.test(await page.textContent('#controls-help')) && await page.evaluate(() => JSON.parse(localStorage.getItem('swanweb.keys'))[8][0]) === 'KeyX', 'keys reset to the defaults');
   // The emulator runs in a Web Worker.
@@ -211,7 +215,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
 
   // 2a. A ROM made with an older version of a translation: the newer one is named.
   await pick('old-patched.wsc', OLD_ROM);
-  await loaded();
+  await page.waitForFunction(() => /^Loaded old-patched/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
   const notice = await page.evaluate(() => ({ hidden: document.getElementById('notice').hidden, text: document.getElementById('notice').textContent }));
   check(!notice.hidden && /made with mario-translation v0\.8\. E2E Test v0\.9 is out/.test(notice.text), `newer version named (${notice.text})`);
 
