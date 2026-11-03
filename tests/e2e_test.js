@@ -184,6 +184,44 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   check(/Game \(Japan\)\.WSC/.test(await page.textContent('#status')), '.7z opened through 7-Zip WASM');
   check(lookups >= 4, `catalog looked up on every load (${lookups})`);
 
+  // 5. Switch to the ares core from the picker at the top, then run the test ROM on it.
+  await page.click('.core-picker input[value=ares]');
+  await page.waitForFunction(() => coreName === 'ares' && !coreBusy, null, { timeout: 60000 });
+  const moved = await page.textContent('#status');
+  check(/^Loaded Game \(Japan\)\.WSC/.test(moved), `ares core loads from the picker and takes over the running game (${moved})`);
+  check(await page.evaluate(() => localStorage.getItem('swanweb.core')) === 'ares', 'core choice is remembered');
+  await pick('input-test.wsc', ROM);
+  await dialogOpen();
+  await page.click('#patch-dialog button[value=original]');
+  await loaded();
+  await page.waitForTimeout(500);
+  const ai = await page.evaluate(() => ({ w: api.width(), h: api.height(), save: api.saveSize(), fps: api.fps(), sixty: document.getElementById('opt-60hz').disabled }));
+  check(ai.w === 224 && ai.h === 144 && ai.save === 32768 && Math.abs(ai.fps - 75.47) < .1 && ai.sixty,
+    `test ROM runs on ares (${ai.w}x${ai.h}, ${ai.save} B SRAM, ${ai.fps.toFixed(2)} Hz, 60 Hz option off)`);
+  let aresKeys = 0;
+  for (const code of ['ArrowUp', 'KeyW', 'KeyX', 'Enter']) {
+    const idle = JSON.stringify(await colour());
+    await page.keyboard.down(code.replace(/^Key/, ''));
+    await page.waitForTimeout(200);
+    if (JSON.stringify(await colour()) !== idle) aresKeys++;
+    await page.keyboard.up(code.replace(/^Key/, ''));
+    await page.waitForTimeout(200);
+  }
+  check(aresKeys === 4, `buttons reach the ares core (${aresKeys}/4)`);
+  const ast = await page.evaluate(async () => {
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    paused = true; api.prepare(); const n = api.stateSize(), sp = wasm._malloc(n); const ok = api.saveState(sp, n);
+    const s = new Uint8Array(wasm.HEAPU8.subarray(sp, sp + n)); wasm._free(sp);
+    const before = wasm.HEAPU8[api.save()]; paused = false; await w(300); paused = true;
+    const ld = allocateBytes(s, (p, l) => api.loadState(p, l)); const after = wasm.HEAPU8[api.save()]; paused = false;
+    return { ok: !!ok && !!ld, same: before === after, n };
+  });
+  check(ast.ok && ast.same, `ares save state restores exactly (${ast.n} bytes)`);
+  // Back to Mednafen: the running game moves with it.
+  await page.click('.core-picker input[value=beetle]');
+  await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && api.saveSize() === 8192, null, { timeout: 30000 });
+  check(true, 'switching back to Mednafen keeps the running game');
+
   check(problems.length === 0, `no console errors, page errors, failed requests or CSP violations${problems.length ? ': ' + problems.join(' / ') : ''}`);
   await browser.close();
   srv.close();

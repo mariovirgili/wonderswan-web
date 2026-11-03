@@ -6,3 +6,6 @@ site/source/*.tar.gz
 .DS_Store
 site/vendor/
 site/source/
+site/core-ares.js
+site/core-ares.wasm
+site/ares-LICENSE.txt
