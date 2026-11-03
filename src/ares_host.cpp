@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* Host for the ares WonderSwan core (ares is ISC-licensed).
  *
  * It exposes the same ws_* C API as bridge.c (the Beetle/Mednafen host), so the

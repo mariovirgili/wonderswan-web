@@ -1,6 +1,8 @@
-/* Copyright (c) 2026. GPL-2.0-only, because this bridge links to
- * Beetle WonderSwan (Mednafen core). No emulator routines are reimplemented.
- * This file is distributed with the project source. */
+/* SPDX-License-Identifier: GPL-2.0-or-later
+ * Copyright (c) 2026. A minimal libretro host, linked with one emulator core
+ * per binary: Beetle WonderSwan (Mednafen, GPL-2.0) into core.wasm and Mesen 2
+ * (GPL-3.0) into core-mesen.wasm; each binary is distributed under its core's
+ * license. No emulator routines are reimplemented. */
 #include "libretro_min.h"
 #include <stdlib.h>
 #include <string.h>
@@ -15,6 +17,24 @@ static uint32_t buttons;
 static double fps=75.47, sample_rate=44100.0;
 static bool started, loaded;
 static uint8_t *loaded_rom;
+
+/* Cores that read content from a file and want system / save folders (Mesen 2, built with
+ * -DBRIDGE_CONTENT_FILE and Emscripten's in-memory file system) get the ROM written to a file.
+ * The file name ends in .ws or .wsc, from the colour flag in the ROM footer. */
+#ifdef BRIDGE_CONTENT_FILE
+#include <stdio.h>
+#include <sys/stat.h>
+static char system_dir[] = "/swan/system", save_dir[] = "/swan/saves", content_path[64];
+static int write_content(const uint8_t *data, size_t size) {
+  mkdir("/swan", 0755); mkdir(system_dir, 0755); mkdir(save_dir, 0755); mkdir("/swan/content", 0755);
+  bool color = size >= 16 && data[size - 16 + 7] != 0;
+  snprintf(content_path, sizeof content_path, "/swan/content/game.%s", color ? "wsc" : "ws");
+  FILE *f = fopen(content_path, "wb");
+  if(!f) return 0;
+  size_t n = fwrite(data, 1, size, f);
+  return fclose(f) == 0 && n == size;
+}
+#endif
 
 /* Core options (libretro variables) set from JavaScript. Keys not set here
  * fall back to the core's own defaults. */
@@ -59,6 +79,14 @@ static bool environment(unsigned cmd,void *data) {
       return true;
     case RETRO_ENVIRONMENT_SET_GEOMETRY:
       return true;
+#ifdef BRIDGE_CONTENT_FILE
+    case RETRO_ENVIRONMENT_GET_SYSTEM_DIRECTORY:
+      if(data) *(const char **)data=system_dir;
+      return true;
+    case RETRO_ENVIRONMENT_GET_SAVE_DIRECTORY:
+      if(data) *(const char **)data=save_dir;
+      return true;
+#endif
     case RETRO_ENVIRONMENT_SET_ROTATION:
       /* The core's manual rotation mode uses software rotation. */
       return false;
@@ -135,6 +163,10 @@ int ws_load(const void *data,size_t size) {
   if(!loaded_rom) return 0;
   memcpy(loaded_rom,data,size);
   struct retro_game_info gi={"memory.wsc",loaded_rom,size,NULL};
+#ifdef BRIDGE_CONTENT_FILE
+  if(!write_content(loaded_rom,size)) {free(loaded_rom);loaded_rom=NULL;return 0;}
+  gi.path=content_path;
+#endif
   if(!retro_load_game(&gi)) {free(loaded_rom);loaded_rom=NULL;return 0;}
   loaded=true;
   struct retro_system_av_info av;

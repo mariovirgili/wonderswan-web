@@ -1,8 +1,9 @@
-// SPDX-License-Identifier: GPL-2.0-only
-/* Independent HTML5 frontend for two WonderSwan emulator cores compiled to
- * WebAssembly: Beetle WonderSwan (Mednafen, libretro ABI) and ares. Both export
- * the same small ws_* C API, so the page can switch between them, keeping the
- * running game. All game content stays in this browser. No RetroArch runtime. */
+// SPDX-License-Identifier: GPL-2.0-or-later
+/* Independent HTML5 frontend for three WonderSwan emulator cores compiled to
+ * WebAssembly: Beetle WonderSwan (Mednafen) and Mesen 2 through a small
+ * libretro host, and ares. All export the same small ws_* C API, so the page
+ * can switch between them, keeping the running game. All game content stays
+ * in this browser. No RetroArch runtime. */
 'use strict';
 const $=id=>document.getElementById(id);
 const canvas=$('screen'),ctx=canvas.getContext('2d',{alpha:false});
@@ -10,7 +11,7 @@ ctx.imageSmoothingEnabled=false;
 const overlay=$('overlay'), status=$('status');
 let wasm=null, api=null, running=false, paused=false, romName='', romKey='', romLoaded=false;
 /* The emulator cores. Each is loaded the first time it is chosen and kept. */
-const CORES={beetle:{label:'Mednafen',script:'./core.js',factory:'createWonderSwan'},ares:{label:'ares',script:'./core-ares.js',factory:'createAres'}};
+const CORES={beetle:{label:'Mednafen',script:'./core.js',factory:'createWonderSwan'},ares:{label:'ares',script:'./core-ares.js',factory:'createAres'},mesen:{label:'Mesen',script:'./core-mesen.js',factory:'createMesen'}};
 const instances={};let coreName='',coreBusy=false,current=null;// current: the running game {bytes,name,note}
 let frameDuration=1000/75.47, lastFrame=0, bank=0, buttons=0, gamepadBits=0;
 let audioContext=null, nextAudioTime=0, volume=.6, lastAutosave=0;
@@ -36,7 +37,7 @@ function loadScript(src){return new Promise((resolve,reject)=>{const s=document.
 async function coreInstance(name){if(instances[name])return instances[name];const c=CORES[name];
  if(typeof window[c.factory]!=='function')await loadScript(c.script);
  const m=await window[c.factory]({locateFile:path=>'./'+path,printErr:console.error});const a=bindApi(m);a.init();return instances[name]={wasm:m,api:a};}
-function showCore(name){for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const ares=name==='ares';$('opt-60hz').disabled=ares;$('opt-60hz-note').hidden=!ares;}
+function showCore(name){for(const r of document.querySelectorAll('input[name=core]'))r.checked=r.value===name;const other=!!name&&name!=='beetle';$('opt-60hz').disabled=other;$('opt-60hz-note').hidden=!other;}
 /* Switch emulator core. A running game moves to the new core with its battery save. */
 async function useCore(name){if(!CORES[name]||name===coreName||coreBusy){showCore(coreName);return;}coreBusy=true;const wasPaused=paused;paused=true;
  try{message(`Loading ${CORES[name].label} WASM…`);const next=await coreInstance(name);
@@ -137,7 +138,7 @@ document.addEventListener('visibilitychange',()=>{if(document.hidden){persistRam
 window.addEventListener('pagehide',()=>{persistRam().catch(()=>{});});
 /* Core options. 60 Hz mode makes the Mednafen core output 60.38 fps (4 of
  * every 5 frames, audio kept continuous) so motion is even on 60 Hz displays.
- * ares has no such mode: it always runs at the native 75.47 Hz. */
+ * ares and Mesen have no such mode: they always run at the native 75.47 Hz. */
 function pref(key,fallback){try{return localStorage.getItem('swanweb.'+key)??fallback}catch{return fallback}}
 function savePref(key,value){try{localStorage.setItem('swanweb.'+key,value)}catch{}}
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';if(!api)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;api.setOption('wswan_60hz_mode',on?'enabled':'disabled');}

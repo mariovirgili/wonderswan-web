@@ -1,11 +1,14 @@
-// SPDX-License-Identifier: GPL-2.0-only
-// Test of the ares WebAssembly core (site/core-ares.js) in Node, with the homebrew test ROM of
-// tests/e2e_test.js: start-up, video, input, battery RAM, save states, reset, and the time an
-// emulated frame takes (cothreads run as Emscripten fibers, which have a cost).
-//   node tests/ares_core_test.js [site-dir]
+// SPDX-License-Identifier: GPL-2.0-or-later
+// Test of a WebAssembly core in Node (ares: site/core-ares.js, Mesen 2: site/core-mesen.js), with
+// the homebrew test ROM of tests/e2e_test.js: start-up, video, input, battery RAM, save states,
+// reset, and the time an emulated frame takes.
+//   node tests/core_test.js [site-dir] [ares|mesen]
 'use strict';
 const path = require('path');
 const SITE = path.resolve(process.argv[2] || path.join(__dirname, '..', 'site'));
+const CORES = { ares: ['core-ares.js', 'createAres'], mesen: ['core-mesen.js', 'createMesen'] };
+const NAME = process.argv[3] || 'ares';
+if (!CORES[NAME]) { console.error(`unknown core ${NAME}`); process.exit(2); }
 
 // Same program as tests/e2e_test.js: colour mode, LCD on, then forever: keypad rows -> palette 0
 // colour 0 (R = X pad, G = buttons, B = Y pad) and increment the first SRAM byte.
@@ -24,8 +27,8 @@ let failures = 0;
 const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (!ok) failures++; };
 
 (async () => {
-  const createAres = require(path.join(SITE, 'core-ares.js'));
-  const m = await createAres({ locateFile: f => path.join(SITE, f), printErr: console.error });
+  const create = require(path.join(SITE, CORES[NAME][0]));
+  const m = await create({ locateFile: f => path.join(SITE, f), printErr: () => {}, print: () => {} });
   const c = (n, r, a) => m.cwrap(n, r, a);
   const api = {
     init: c('ws_init', 'number', []), load: c('ws_load', 'number', ['number', 'number']), run: c('ws_run', null, []),
@@ -48,7 +51,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   let audio = 0;
   for (let i = 0; i < 600; i++) { api.run(); audio += api.frames(); }
   const ms = Number(process.hrtime.bigint() - t0) / 1e6 / 600;
-  console.log(`# ares: ${ms.toFixed(3)} ms per emulated frame (${(1000 / 75.47 / ms).toFixed(1)}x real time), ${(audio / 600).toFixed(1)} audio frames/frame at ${api.rate()} Hz`);
+  console.log(`# ${NAME}: ${ms.toFixed(3)} ms per emulated frame (${(1000 / 75.47 / ms).toFixed(1)}x real time), ${(audio / 600).toFixed(1)} audio frames/frame at ${api.rate()} Hz`);
   check(api.width() === 224 && api.height() === 144, `video is 224x144 (${api.width()}x${api.height()})`);
   check(Math.abs(api.fps() - 75.47) < 0.1, `75.47 Hz (${api.fps()})`);
   check(Math.abs(audio / 600 - api.rate() / api.fps()) < 20, 'audio arrives at the stated rate');
@@ -56,7 +59,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
 
   const black = JSON.stringify(pixel());
   const seen = {};
-  // ares emulates the LCD's colour response, so each button gives a distinct mix, not a pure channel.
+  // The cores emulate the LCD's colour response, so each button gives a distinct mix, not a pure channel.
   for (const bit of [4, 7, 5, 6, 13, 11, 12, 10, 3, 8, 0]) {
     api.input(1 << bit); frames(4);
     const px = pixel(); seen[bit] = px;
@@ -86,6 +89,6 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   api.reset(); frames(5);
   check(api.width() === 224, 'reset');
   api.unload();
-  console.log(failures ? `${failures} ares check(s) failed` : 'all ares core tests passed');
+  console.log(failures ? `${failures} ${NAME} check(s) failed` : `all ${NAME} core tests passed`);
   process.exit(failures ? 1 : 0);
 })().catch(e => { console.error(e); process.exit(1); });

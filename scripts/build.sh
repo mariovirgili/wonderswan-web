@@ -42,6 +42,8 @@ emcc -O3 "$ROOT/src/bridge.c" \
 cp "$CORE/COPYING" "$OUT/COPYING"
 # The second core: ares (ISC), with the same ws_* API (src/ares_host.cpp).
 bash "$ROOT/scripts/build_ares.sh"
+# The third core: Mesen 2 (GPL-3.0), through the same bridge in file mode (scripts/build_mesen.sh).
+bash "$ROOT/scripts/build_mesen.sh"
 # 7-Zip compiled to WebAssembly (LGPL + unRAR restriction) for .7z ROM archives; pinned version.
 SEVENZIP_VERSION="${SEVENZIP_VERSION:-1.2.0}"
 SZ="$ROOT/.build/7z-wasm"

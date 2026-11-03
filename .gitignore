@@ -9,3 +9,6 @@ site/source/
 site/core-ares.js
 site/core-ares.wasm
 site/ares-LICENSE.txt
+site/core-mesen.js
+site/core-mesen.wasm
+site/mesen-LICENSE.txt

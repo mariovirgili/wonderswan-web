@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-or-later
 /* The few nall library functions the ares WonderSwan core links against but
  * never uses in this build: the GDB remote-debugging server (TCP sockets), x86
  * CPU feature detection and thread naming. In the browser there is no socket
