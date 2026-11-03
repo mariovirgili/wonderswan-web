@@ -171,9 +171,16 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.keyboard.press('k');
   const bound = await page.textContent('#keys-rows button.bind[data-kind=key][data-action="8"]');
   await page.click('#keys-dialog button[value=done]');
-  await page.keyboard.down('k'); await page.waitForTimeout(200); const kA = JSON.stringify(await colour()); await page.keyboard.up('k');
-  await page.waitForTimeout(150);
-  await page.keyboard.down('x'); await page.waitForTimeout(200); const xA = JSON.stringify(await colour()); await page.keyboard.up('x');
+  // Hold a key and wait (up to 2 s; CI machines are slow) until the picture shows the A colour.
+  const holdFor = async key => {
+    await page.keyboard.down(key);
+    let c = null;
+    for (let t = 0; t < 20; t++) { await page.waitForTimeout(100); c = JSON.stringify(await colour()); if (c === JSON.stringify(expect.KeyX)) break; }
+    await page.keyboard.up(key); await page.waitForTimeout(200);
+    return c;
+  };
+  const kA = await holdFor('k');
+  const xA = await holdFor('x');
   const help = await page.textContent('#controls-help');
   check(bound === 'K' && kA === JSON.stringify(expect.KeyX) && xA !== kA && /A = K/.test(help), `A remapped to K (${bound}; K gives ${kA}, X no longer does; help: "${help.match(/A = \w+/)?.[0]}")`);
   await page.click('#remap'); await page.click('#keys-reset'); await page.click('#keys-dialog button[value=done]');

@@ -40,7 +40,7 @@ leave your browser.
 - **Battery saves** kept automatically in the browser, per ROM *and* per patch; **export / import** of SRAM and
   **save states**.
 - **Controls** for keyboard, gamepad and touch, including the WonderSwan's second (Y) direction pad and screen rotation.
-  **Change keys** remaps every button to another key or gamepad button; the choice is kept in the browser.
+  **Change keys and gamepad buttons** remaps every button to another key or gamepad button; the choice is kept in the browser.
 - **Emulation in a Web Worker**, so the page stays responsive while the core works and the core is not slowed down by
   the page.
 - **Low-latency audio** (AudioWorklet), with an on/off toggle and volume.
@@ -63,8 +63,8 @@ leave your browser.
 | Quick save / quick load | F5 / F7 | |
 | Quick-save slot | 1 / 2 / 3 | |
 
-These are the defaults. **Change keys** (next to the list of controls) lets you press a new key or gamepad button for
-each WonderSwan button; **Defaults** puts them back. F5, F7, 1–3, Esc and Tab stay reserved.
+These are the defaults. **Change keys and gamepad buttons** (under the list of controls) lets you press a new key or
+gamepad button for each WonderSwan button; **Reset to defaults** puts them back. F5, F7, 1–3, Esc and Tab stay reserved.
 
 Some games use the Y pad; the touch controls under the screen have both pads. With ares and Mesen, vertical games turn
 the screen by themselves; Rotate switches between that and the other orientation. In **Options** you can turn off the
