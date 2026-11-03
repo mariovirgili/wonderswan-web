@@ -38,7 +38,7 @@ EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_se
 # Mesen's static data (all its consoles) needs more than 64 MB at start-up.
 ( cd "$SRC" && em++ -O3 "$OBJ/bridge.o" "${MESEN_OBJS[@]}" -lm \
   -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=createMesen \
-  -sENVIRONMENT=web,node -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=134217728 \
+  -sENVIRONMENT=web,worker,node -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=134217728 \
   -sSTACK_SIZE=2097152 -sASSERTIONS=0 \
   "-sEXPORTED_FUNCTIONS=$EXPORTS" \
   '-sEXPORTED_RUNTIME_METHODS=["cwrap","HEAPU8"]' \

@@ -34,7 +34,7 @@ EXPORTS='["_malloc","_free","_ws_init","_ws_load","_ws_unload","_ws_run","_ws_se
 emcc -O3 "$ROOT/src/bridge.c" \
   -Wl,--whole-archive "$LIB" -Wl,--no-whole-archive -lm \
   -sWASM=1 -sMODULARIZE=1 -sEXPORT_NAME=createWonderSwan \
-  -sENVIRONMENT=web -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
+  -sENVIRONMENT=web,worker -sALLOW_MEMORY_GROWTH=1 -sINITIAL_MEMORY=67108864 \
   -sSTACK_SIZE=2097152 -sFILESYSTEM=0 -sASSERTIONS=0 \
   "-sEXPORTED_FUNCTIONS=$EXPORTS" \
   '-sEXPORTED_RUNTIME_METHODS=["cwrap","HEAPU8"]' \

@@ -28,3 +28,12 @@
 .quick button{font-size:12px;padding:10px 5px}
 .settings h3{font-size:.85rem;margin:16px 0 6px;color:#dfe5f7}
 .settings .check input:disabled+*,.settings .check:has(input:disabled){opacity:.5}
+/* Controls: remapping */
+.remap{font-size:12px;padding:8px 12px;margin-top:2px}
+.keys-table{width:100%;border-collapse:collapse;margin:6px 0 4px;font-size:13px}
+.keys-table th,.keys-table td{padding:4px 6px;text-align:left;border-bottom:1px solid #26324d}
+.keys-table thead th{color:#8498bb;font-size:11px;letter-spacing:.08em;text-transform:uppercase}
+.keys-table tbody th{font-weight:600;color:#dfe5f7;white-space:nowrap}
+.keys-table .bind{width:100%;font-size:12px;padding:6px 8px;font-weight:600;text-align:left}
+.keys-table .bind.waiting{background:#275ec0;border-color:#4688f2}
+#keys-dialog{max-width:min(620px,94vw)}

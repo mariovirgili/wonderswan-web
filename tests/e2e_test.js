@@ -138,11 +138,11 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   check(await page.$eval('#patch-list a[href^="javascript:"]', () => true).catch(() => false) === false, 'non-https links from the catalog are not rendered as links');
   await page.click('#patch-dialog button[value=original]');
   await loaded();
-  const info = await page.evaluate(() => ({ w: api.width(), h: api.height(), save: api.saveSize(), status: status.textContent }));
+  const info = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, status: status.textContent }));
   check(info.w === 224 && info.h === 144 && info.save === 8192, `original ROM runs (224x144, 8 KB SRAM): ${info.status}`);
 
   // Every button reaches the core (the ROM paints its keypad bits as the background colour).
-  const colour = () => page.evaluate(() => { const p = api.video(); return Array.from(wasm.HEAPU8.subarray(p, p + 3)); });
+  const colour = () => page.evaluate(() => (lastVideo ? Array.from(lastVideo.subarray(0, 3)) : null));  // last picture from the worker
   const expect = { ArrowUp: [16, 0, 0], ArrowRight: [33, 0, 0], ArrowDown: [66, 0, 0], ArrowLeft: [140, 0, 0], KeyW: [0, 0, 16],
     KeyD: [0, 0, 33], KeyS: [0, 0, 66], KeyA: [0, 0, 140], Enter: [0, 32, 0], KeyX: [0, 69, 0], KeyZ: [0, 138, 0] };
   let keysOk = 0;
@@ -154,17 +154,31 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     await page.waitForTimeout(150);
   }
   check(keysOk === 11, `all 11 buttons reach the core (${keysOk}/11)`);
+  // Remapping: A moves from X to K (keyboard), then back to the defaults.
+  await page.click('#remap');
+  await page.click('#keys-rows button.bind[data-kind=key][data-action="8"]');
+  await page.keyboard.press('k');
+  const bound = await page.textContent('#keys-rows button.bind[data-kind=key][data-action="8"]');
+  await page.click('#keys-dialog button[value=done]');
+  await page.keyboard.down('k'); await page.waitForTimeout(200); const kA = JSON.stringify(await colour()); await page.keyboard.up('k');
+  await page.waitForTimeout(150);
+  await page.keyboard.down('x'); await page.waitForTimeout(200); const xA = JSON.stringify(await colour()); await page.keyboard.up('x');
+  const help = await page.textContent('#controls-help');
+  check(bound === 'K' && kA === JSON.stringify(expect.KeyX) && xA !== kA && /A = K/.test(help), `A remapped to K (${bound}; K gives ${kA}, X no longer does; help: "${help.match(/A = \w+/)?.[0]}")`);
+  await page.click('#remap'); await page.click('#keys-reset'); await page.click('#keys-dialog button[value=done]');
+  check(/A = X/.test(await page.textContent('#controls-help')) && await page.evaluate(() => JSON.parse(localStorage.getItem('swanweb.keys'))[8][0]) === 'KeyX', 'keys reset to the defaults');
+  // The emulator runs in a Web Worker.
+  check(await page.evaluate(() => core.worker instanceof Worker && framesRun > 0), 'the core runs in a Web Worker');
   await page.keyboard.press('x');  // a tap shorter than a frame is still seen (input latch)
   check(true, 'short taps accepted');
 
   // SRAM changes and save states restore exactly.
   const st = await page.evaluate(async () => {
     const w = ms => new Promise(r => setTimeout(r, ms));
-    const a = wasm.HEAPU8[api.save()]; await w(300); const b = wasm.HEAPU8[api.save()];
-    paused = true; const n = api.stateSize(), sp = wasm._malloc(n); const ok = api.saveState(sp, n);
-    const s = new Uint8Array(wasm.HEAPU8.subarray(sp, sp + n)); wasm._free(sp);
-    const before = wasm.HEAPU8[api.save()]; paused = false; await w(300); paused = true;
-    const ld = allocateBytes(s, (p, l) => api.loadState(p, l)); const after = wasm.HEAPU8[api.save()]; paused = false;
+    const a = (await core.call('getSave'))[0]; await w(300); const b = (await core.call('getSave'))[0];
+    paused = true; const s = await core.call('saveState'); const n = s?.length || 0, ok = n > 0;
+    const before = (await core.call('getSave'))[0]; paused = false; await w(300); paused = true;
+    const ld = await core.call('loadState', { bytes: s }); const after = (await core.call('getSave'))[0]; paused = false;
     return { sramMoves: a !== b, ok: !!ok && !!ld, same: before === after };
   });
   check(st.sramMoves && st.ok && st.same, 'SRAM is live and a save state restores exactly');
@@ -174,7 +188,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await dialogOpen();
   await page.click('#patch-apply');
   await loaded();
-  const p2 = await page.evaluate(() => ({ save: api.saveSize(), status: status.textContent }));
+  const p2 = await page.evaluate(() => ({ save: info.saveSize, status: status.textContent }));
   check(p2.save === 32768 && /patched with mario-translation v0\.9/.test(p2.status), `patch applied on the fly (${p2.status})`);
 
   // 2b. A patch file from this computer, applied to the ROM as loaded (BPS checks its source CRC).
@@ -184,7 +198,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await loaded();
   await page.setInputFiles('#patch-file', { name: 'my-wip.bps', mimeType: 'application/octet-stream', buffer: BPS });
   await page.waitForFunction(() => /patched with local file my-wip\.bps/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
-  const lp = await page.evaluate(() => ({ save: api.saveSize(), name: romName }));
+  const lp = await page.evaluate(() => ({ save: info.saveSize, name: romName }));
   check(lp.save === 32768 && lp.name === 'input-test [my-wip].wsc', `local patch file applied (${lp.name}, ${lp.save} B SRAM)`);
   await page.setInputFiles('#patch-file', { name: 'junk.bps', mimeType: 'application/octet-stream', buffer: Buffer.from('not a patch') });
   await page.waitForFunction(() => /junk\.bps failed/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
@@ -199,9 +213,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.waitForFunction(() => /Loaded slot 2/.test(document.getElementById('status').textContent), null, { timeout: 20000 });
   const qs = await page.evaluate(async () => {
     const w = ms => new Promise(r => setTimeout(r, ms));
-    paused = true; await quickSave(); const before = wasm.HEAPU8[api.save()];
+    paused = true; await quickSave(); const before = (await core.call('getSave'))[0];
     paused = false; await w(300); paused = true;
-    await quickLoad(); const after = wasm.HEAPU8[api.save()]; paused = false;
+    await quickLoad(); const after = (await core.call('getSave'))[0]; paused = false;
     return { before, after };
   });
   check(qs.before === qs.after && /^Slot 2 · \d/.test(label), `quick save (F5) and load (F7) restore exactly (${label})`);
@@ -238,7 +252,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.click('#patch-dialog button[value=original]');
   await loaded();
   await page.waitForTimeout(500);
-  const ai = await page.evaluate(() => ({ w: api.width(), h: api.height(), save: api.saveSize(), fps: api.fps(), sixty: document.getElementById('opt-60hz').disabled }));
+  const ai = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, fps: info.fps, sixty: document.getElementById('opt-60hz').disabled }));
   check(ai.w === 224 && ai.h === 144 && ai.save === 32768 && Math.abs(ai.fps - 75.47) < .1 && ai.sixty,
     `test ROM runs on ares (${ai.w}x${ai.h}, ${ai.save} B SRAM, ${ai.fps.toFixed(2)} Hz, 60 Hz option off)`);
   let aresKeys = 0;
@@ -253,10 +267,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   check(aresKeys === 4, `buttons reach the ares core (${aresKeys}/4)`);
   const ast = await page.evaluate(async () => {
     const w = ms => new Promise(r => setTimeout(r, ms));
-    paused = true; api.prepare(); const n = api.stateSize(), sp = wasm._malloc(n); const ok = api.saveState(sp, n);
-    const s = new Uint8Array(wasm.HEAPU8.subarray(sp, sp + n)); wasm._free(sp);
-    const before = wasm.HEAPU8[api.save()]; paused = false; await w(300); paused = true;
-    const ld = allocateBytes(s, (p, l) => api.loadState(p, l)); const after = wasm.HEAPU8[api.save()]; paused = false;
+    paused = true; const s = await core.call('saveState'); const n = s?.length || 0, ok = n > 0;
+    const before = (await core.call('getSave'))[0]; paused = false; await w(300); paused = true;
+    const ld = await core.call('loadState', { bytes: s }); const after = (await core.call('getSave'))[0]; paused = false;
     return { ok: !!ok && !!ld, same: before === after, n };
   });
   check(ast.ok && ast.same, `ares save state restores exactly (${ast.n} bytes)`);
@@ -274,7 +287,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.click('.core-picker input[value=mesen]');
   await page.waitForFunction(() => coreName === 'mesen' && !coreBusy, null, { timeout: 60000 });
   await page.waitForTimeout(500);
-  const mi = await page.evaluate(() => ({ w: api.width(), h: api.height(), save: api.saveSize(), fps: api.fps(), status: status.textContent, sixty: document.getElementById('opt-60hz').disabled }));
+  const mi = await page.evaluate(() => ({ w: info.width, h: info.height, save: info.saveSize, fps: info.fps, status: status.textContent, sixty: document.getElementById('opt-60hz').disabled }));
   check(/^Loaded input-test\.wsc/.test(mi.status) && mi.w === 224 && mi.h === 144 && mi.save > 0 && Math.abs(mi.fps - 75.47) < .1 && mi.sixty,
     `Mesen takes over the running game (${mi.status}; ${mi.w}x${mi.h}, ${mi.save} B SRAM, ${mi.fps.toFixed(2)} Hz)`);
   let mesenKeys = 0;
@@ -290,10 +303,9 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   check(mesenKeys === mesenCodes.length, `all 11 buttons reach the Mesen core (${mesenKeys}/11)`);
   const mst = await page.evaluate(async () => {
     const w = ms => new Promise(r => setTimeout(r, ms));
-    paused = true; api.prepare(); const n = api.stateSize(), sp = wasm._malloc(n); const ok = api.saveState(sp, n);
-    const s = new Uint8Array(wasm.HEAPU8.subarray(sp, sp + n)); wasm._free(sp);
-    const before = wasm.HEAPU8[api.save()]; paused = false; await w(300); paused = true;
-    const ld = allocateBytes(s, (p, l) => api.loadState(p, l)); const after = wasm.HEAPU8[api.save()]; paused = false;
+    paused = true; const s = await core.call('saveState'); const n = s?.length || 0, ok = n > 0;
+    const before = (await core.call('getSave'))[0]; paused = false; await w(300); paused = true;
+    const ld = await core.call('loadState', { bytes: s }); const after = (await core.call('getSave'))[0]; paused = false;
     return { ok: !!ok && !!ld, same: before === after, n };
   });
   check(mst.ok && mst.same, `Mesen save state restores exactly (${mst.n} bytes)`);
@@ -314,7 +326,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
 
   // Back to Mednafen: the running game moves with it.
   await page.click('.core-picker input[value=beetle]');
-  await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && api.saveSize() === 8192, null, { timeout: 30000 });
+  await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && !coreBusy && info.saveSize === 8192, null, { timeout: 30000 });
   check(true, 'switching back to Mednafen keeps the running game');
 
   check(problems.length === 0, `no console errors, page errors, failed requests or CSP violations${problems.length ? ': ' + problems.join(' / ') : ''}`);
