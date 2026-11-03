@@ -1,4 +1,4 @@
-// SPDX-License-Identifier: GPL-2.0-only
+// SPDX-License-Identifier: GPL-2.0-or-later
 // End-to-end test of the built site in headless Chromium (Playwright).
 //   node tests/e2e_test.js [site-dir]        (default: site/, after scripts/build.sh)
 // Uses a tiny homebrew test ROM generated here (no commercial ROMs) and a fake patch catalog
@@ -217,6 +217,34 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     return { ok: !!ok && !!ld, same: before === after, n };
   });
   check(ast.ok && ast.same, `ares save state restores exactly (${ast.n} bytes)`);
+  // 6. Mesen 2: the running game moves over; then the same checks, including all four Y-pad keys.
+  await page.click('.core-picker input[value=mesen]');
+  await page.waitForFunction(() => coreName === 'mesen' && !coreBusy, null, { timeout: 60000 });
+  await page.waitForTimeout(500);
+  const mi = await page.evaluate(() => ({ w: api.width(), h: api.height(), save: api.saveSize(), fps: api.fps(), status: status.textContent, sixty: document.getElementById('opt-60hz').disabled }));
+  check(/^Loaded input-test\.wsc/.test(mi.status) && mi.w === 224 && mi.h === 144 && mi.save > 0 && Math.abs(mi.fps - 75.47) < .1 && mi.sixty,
+    `Mesen takes over the running game (${mi.status}; ${mi.w}x${mi.h}, ${mi.save} B SRAM, ${mi.fps.toFixed(2)} Hz)`);
+  let mesenKeys = 0;
+  const mesenCodes = ['ArrowUp', 'ArrowRight', 'ArrowDown', 'ArrowLeft', 'KeyW', 'KeyD', 'KeyS', 'KeyA', 'Enter', 'KeyX', 'KeyZ'];
+  for (const code of mesenCodes) {
+    const idle = JSON.stringify(await colour());
+    await page.keyboard.down(code.replace(/^Key/, ''));
+    await page.waitForTimeout(200);
+    if (JSON.stringify(await colour()) !== idle) mesenKeys++;
+    await page.keyboard.up(code.replace(/^Key/, ''));
+    await page.waitForTimeout(200);
+  }
+  check(mesenKeys === mesenCodes.length, `all 11 buttons reach the Mesen core (${mesenKeys}/11)`);
+  const mst = await page.evaluate(async () => {
+    const w = ms => new Promise(r => setTimeout(r, ms));
+    paused = true; api.prepare(); const n = api.stateSize(), sp = wasm._malloc(n); const ok = api.saveState(sp, n);
+    const s = new Uint8Array(wasm.HEAPU8.subarray(sp, sp + n)); wasm._free(sp);
+    const before = wasm.HEAPU8[api.save()]; paused = false; await w(300); paused = true;
+    const ld = allocateBytes(s, (p, l) => api.loadState(p, l)); const after = wasm.HEAPU8[api.save()]; paused = false;
+    return { ok: !!ok && !!ld, same: before === after, n };
+  });
+  check(mst.ok && mst.same, `Mesen save state restores exactly (${mst.n} bytes)`);
+
   // Back to Mednafen: the running game moves with it.
   await page.click('.core-picker input[value=beetle]');
   await page.waitForFunction(() => /^Loaded input-test\.wsc/.test(document.getElementById('status').textContent) && api.saveSize() === 8192, null, { timeout: 30000 });

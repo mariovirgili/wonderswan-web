@@ -30,4 +30,10 @@ if (site/'core.wasm').exists():
     assert 'ISC' in (site/'ares-LICENSE.txt').read_text() or 'Permission to use' in (site/'ares-LICENSE.txt').read_text(), 'Missing ares license'
     assert (site/'source/ares-source.tar.gz').exists(), 'Missing ares source archive'
     assert 'ares-emulator/ares' in (site/'source/SOURCES.txt').read_text(), 'ares missing from SOURCES.txt'
+    # The Mesen 2 core (scripts/build_mesen.sh), GPL-3.0, with its license and source.
+    assert (site/'core-mesen.wasm').read_bytes()[:4]==b'\x00asm', 'Missing or invalid core-mesen.wasm'
+    assert (site/'core-mesen.js').stat().st_size>3000, 'Missing core-mesen.js'
+    assert 'Version 3' in (site/'mesen-LICENSE.txt').read_text(), 'Missing Mesen license (GPL v3)'
+    assert (site/'source/mesen-source.tar.gz').exists(), 'Missing Mesen source archive'
+    assert 'libretro/MesenCE' in (site/'source/SOURCES.txt').read_text(), 'Mesen missing from SOURCES.txt'
 print('Static verification passed. WASM build detected:',(site/'core.wasm').exists())

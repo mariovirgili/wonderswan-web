@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-# SPDX-License-Identifier: GPL-2.0-only
+# SPDX-License-Identifier: GPL-2.0-or-later
 """Small source changes so ares builds and runs well in WebAssembly (Emscripten).
 
 ares' nall library detects the platform and CPU architecture at compile time

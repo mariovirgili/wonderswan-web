@@ -7,6 +7,8 @@
 #   beetle-wswan-source.tar.gz              Beetle WonderSwan exactly as compiled (GPL-2.0)
 #   ares-source.tar.gz                      the ares files compiled into core-ares.wasm, as compiled
 #                                           (ISC; written only when scripts/build_ares.sh ran)
+#   mesen-source.tar.gz                     Mesen 2 (libretro/MesenCE) as compiled (GPL-3.0; written only
+#                                           when scripts/build_mesen.sh ran)
 #   7z-wasm-<ver>-source.tar.gz             7z-wasm build files at the published tag + the 7-Zip
 #                                           source release it is built from (LGPL-2.1 + unRAR restriction)
 set -euo pipefail
@@ -41,6 +43,15 @@ ARES_COMMIT=""
 if [[ -f "$OUT/core-ares.wasm" ]]; then
   ARES_COMMIT="$(git -C "$ARES_SRC" rev-parse HEAD)"
   tar --transform 's,^,ares/,' -czf "$SRC/ares-source.tar.gz" -C "$ARES_SRC" -T "$ROOT/.build/ares-files.txt"
+fi
+
+# 2c. Mesen 2: the source folders compiled into core-mesen.wasm, as compiled (patched), without objects.
+MESEN_SRC="${MESEN_SRC:-$ROOT/.build/mesen}"
+MESEN_COMMIT=""
+if [[ -f "$OUT/core-mesen.wasm" ]]; then
+  MESEN_COMMIT="$(git -C "$MESEN_SRC" rev-parse HEAD)"
+  tar --exclude='*.o' --exclude='*.d' --exclude='*.tmp' --transform 's,^,mesen/,' -czf "$SRC/mesen-source.tar.gz" \
+    -C "$MESEN_SRC" Core Utilities Lua SevenZip Libretro Makefile.libretro LICENSE README.md COMPILING.md
 fi
 
 # 3. 7z-wasm: build files at the release tag, checked against the binary we ship, plus 7-Zip's source.
@@ -104,21 +115,41 @@ if [[ -n "$ARES_COMMIT" ]]; then
    sha256 core-ares.wasm: $(sha "$OUT/core-ares.wasm")
 "
 fi
+MESEN_SECTION=""
+if [[ -n "$MESEN_COMMIT" ]]; then
+  MESEN_SECTION="
+5. mesen-source.tar.gz
+   Mesen 2, libretro version (MesenCE): the folders compiled into core-mesen.wasm (Core, Utilities,
+   Lua, SevenZip, Libretro) with its makefile, as compiled: scripts/patch_mesen.py from (1) was
+   applied (WonderSwan battery save and Y pad in the libretro front end, no threads in WebAssembly,
+   one video filter per game, screen rotation).
+   Repository: https://github.com/libretro/MesenCE
+   Commit: $MESEN_COMMIT
+   License: GPL-3.0 (LICENSE in the archive; mesen-LICENSE.txt on the site)
+   sha256: $(sha "$SRC/mesen-source.tar.gz")
+
+   core-mesen.wasm + core-mesen.js = (5) linked with src/bridge.c from (1), built with
+   -DBRIDGE_CONTENT_FILE, using: $EMCC_VERSION. Distributed under the GNU GPL v3.
+   sha256 core-mesen.wasm: $(sha "$OUT/core-mesen.wasm")
+"
+fi
 cat > "$SRC/SOURCES.txt" <<TXT
 WonderSwan AI/MTL Tester - corresponding source
 ===============================================
 
 This site ships object code (WebAssembly) built from the sources below. Each archive in this
 folder is the complete corresponding source for the parts named, as required by the GNU GPL v2
-(core.wasm / core.js) and the GNU LGPL v2.1 (vendor/7z). Built $(date -u +%Y-%m-%dT%H:%MZ).
+(core.wasm / core.js), the GNU GPL v3 (core-mesen.wasm / core-mesen.js) and the GNU LGPL v2.1
+(vendor/7z). Built $(date -u +%Y-%m-%dT%H:%MZ).
 
 1. wonderswan-ai-mtl-tester-source.tar.gz
    This project: src/bridge.c, src/ares_host.cpp, src/ares_stubs.cpp, src/libco_emscripten.c,
    the web frontend (site/*.html, *.js, *.css), scripts/build.sh, scripts/build_ares.sh,
-   scripts/patch_ares.py, scripts/package_sources.sh, the GitHub Actions workflow and the tests.
+   scripts/patch_ares.py, scripts/build_mesen.sh, scripts/patch_mesen.py,
+   scripts/package_sources.sh, the GitHub Actions workflow and the tests.
    Repository: https://github.com/mariovirgili/wonderswan-web
    Commit: $SELF_COMMIT$DIRTY
-   License: GPL-2.0-only (LICENSE)
+   License: GPL-2.0-or-later (LICENSE)
    sha256: $(sha "$SRC/wonderswan-ai-mtl-tester-source.tar.gz")
 
 2. beetle-wswan-source.tar.gz
@@ -145,8 +176,9 @@ folder is the complete corresponding source for the parts named, as required by 
    sha256 vendor/7z/7zz.wasm: $(sha "$OUT/vendor/7z/7zz.wasm")
 
 $ARES_SECTION
+$MESEN_SECTION
 To rebuild: unpack (1), install the Emscripten SDK version above, run scripts/build.sh
-(it fetches (2) and ares at the same commits, and 7z-wasm $SEVENZIP_VERSION). To rebuild
+(it fetches (2), ares and Mesen at the same commits, and 7z-wasm $SEVENZIP_VERSION). To rebuild
 7-Zip itself, follow README.md / build in (3).
 TXT
 echo "Corresponding source written to $SRC"
