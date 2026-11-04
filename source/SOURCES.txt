@@ -1,0 +1,74 @@
+WonderSwan AI/MTL Tester - corresponding source
+===============================================
+
+This site ships object code (WebAssembly) built from the sources below. Each archive in this
+folder is the complete corresponding source for the parts named, as required by the GNU GPL v2
+(core.wasm / core.js), the GNU GPL v3 (core-mesen.wasm / core-mesen.js) and the GNU LGPL v2.1
+(vendor/7z). Built 2026-11-04T18:09Z.
+
+1. wonderswan-ai-mtl-tester-source.tar.gz
+   This project: src/bridge.c, src/ares_host.cpp, src/ares_stubs.cpp, src/libco_emscripten.c,
+   the web frontend (site/*.html, *.js, *.css), scripts/build.sh, scripts/build_ares.sh,
+   scripts/patch_ares.py, scripts/build_mesen.sh, scripts/patch_mesen.py,
+   scripts/package_sources.sh, the GitHub Actions workflow and the tests.
+   Repository: https://github.com/mariovirgili/wonderswan-web
+   Commit: a50b62c58ca553c6ec4bd14dc778647586f43972
+   License: GPL-2.0-or-later (LICENSE)
+   sha256: 47f95ec3647794244b4680aaded39882d6172b3b3e4f72d07cf2939064d745d6
+
+2. beetle-wswan-source.tar.gz
+   Beetle WonderSwan (Mednafen) libretro core, as compiled (scripts/build.sh enables the
+   compatibility files in Makefile.common).
+   Repository: https://github.com/libretro/beetle-wswan-libretro
+   Commit: 4b01295838ea89e3f1355bbe4cb5cf98aa6108cd
+   License: GPL-2.0 (COPYING)
+   sha256: cde2f12cf39311421a617770752840f2e7e52b032b4a5656f7c1aff8a8624d65
+
+   core.wasm + core.js = (2) linked with src/bridge.c from (1), using: emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.19 (08e2de1031913e4ba7963b1c56f35f036a7d4d56)
+   sha256 core.wasm: cafa2ea6b6eea90c2b66cfd83a50e2825752cca0d41fda981065f3158cd66675
+
+3. 7z-wasm-1.2.0-source.tar.gz
+   7z-wasm 1.2.0 build files (Dockerfile, build scripts, 7zz-emcc.patch - which adds
+   makefile.emcc, pre.js and post.js to the 7-Zip tree)
+   at tag v1.2.0, commit 521d2cf93f5964f4e77b01049e19f1b29305c454, plus the 7-Zip source release it is built from:
+   7z2409-src.7z (sha256 a33569eed0ce628fb9ceb9f46ac257d3f36b3966471667e65ba01878673c9faa, downloaded from https://github.com/ip7z/7zip/releases/download/24.09/7z2409-src.7z).
+   vendor/7z/7zz.wasm and 7zz.umd.js are the unmodified npm release 7z-wasm@1.2.0;
+   the build checks that its 7zz.wasm is identical to the one in the tagged repository.
+   License: GNU LGPL v2.1 + unRAR restriction (vendor/7z/License.txt, copying-LGPL.txt,
+   unRarLicense.txt). The unRAR code may not be used to re-create the RAR compression algorithm.
+   sha256: f549725f54ae22c5e47cb5163db7c16d96e0fb52273afd9b17952983cbb678b4
+   sha256 vendor/7z/7zz.wasm: e16c6997e2eaa89575c0dd1f305074be629c3f4d87246244d37fd19debc8a285
+
+
+4. ares-source.tar.gz
+   The ares emulator files compiled into core-ares.wasm, as compiled: the WonderSwan core, the
+   V30MZ CPU and 93LCxx EEPROM components, the ares node/scheduler library, nall (headers),
+   the generated resource.cpp / ares.cpp, and the sourcery tool that generates resource.cpp.
+   scripts/patch_ares.py from (1) was applied (WebAssembly platform detection, no sljit).
+   Repository: https://github.com/ares-emulator/ares
+   Commit: 4307bf2eff6e4f9a277fdc6f9d4f4de177b3f932
+   License: ISC (LICENSE in the archive; ares-LICENSE.txt on the site)
+   sha256: f7925d8aa14bc465e024c10c47adbd260c5c43c78b2556978559cb4a7c4f1295
+
+   core-ares.wasm + core-ares.js = (4) linked with src/ares_host.cpp, src/ares_stubs.cpp and
+   src/libco_emscripten.c from (1) (Emscripten fibers + Asyncify), using: emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.19 (08e2de1031913e4ba7963b1c56f35f036a7d4d56)
+   sha256 core-ares.wasm: 14bf86127d00a401f44862aca2de4556c5e5d62958a166467fab5fa51405fd19
+
+
+5. mesen-source.tar.gz
+   Mesen 2, libretro version (MesenCE): the folders compiled into core-mesen.wasm (Core, Utilities,
+   Lua, SevenZip, Libretro) with its makefile, as compiled: scripts/patch_mesen.py from (1) was
+   applied (WonderSwan battery save and Y pad in the libretro front end, no threads in WebAssembly,
+   one video filter per game, screen rotation).
+   Repository: https://github.com/libretro/MesenCE
+   Commit: 4c4e069f16a8ad6ed79e046046c56d51558c7daf
+   License: GPL-3.0 (LICENSE in the archive; mesen-LICENSE.txt on the site)
+   sha256: 975ec88109371d1f603d7aa304891f97317a60767114be52528a61515fb6938c
+
+   core-mesen.wasm + core-mesen.js = (5) linked with src/bridge.c from (1), built with
+   -DBRIDGE_CONTENT_FILE, using: emcc (Emscripten gcc/clang-like replacement + linker emulating GNU ld) 4.0.19 (08e2de1031913e4ba7963b1c56f35f036a7d4d56). Distributed under the GNU GPL v3.
+   sha256 core-mesen.wasm: 3240ff0b1fac911259c7e908a1b6970a75eeb51b5b37883a4b386d9537e38947
+
+To rebuild: unpack (1), install the Emscripten SDK version above, run scripts/build.sh
+(it fetches (2), ares and Mesen at the same commits, and 7z-wasm 1.2.0). To rebuild
+7-Zip itself, follow README.md / build in (3).
