@@ -50,6 +50,9 @@ leave your browser.
 - **Low-latency audio** (AudioWorklet), with an on/off toggle and volume.
 - **FPS counter.** The **FPS** button shows, in a corner of the screen, the frames per second the emulator runs and
   its speed against the real console (100% = real time); the choice is remembered.
+- **Touch controls in fullscreen.** With **Touch** on, **Fullscreen** puts the touch controls over the picture (at the
+  sides in landscape, below it in portrait), with ✕ to leave; where the browser has no fullscreen (iPhone), the screen
+  fills the page instead.
 
 ## Using it
 

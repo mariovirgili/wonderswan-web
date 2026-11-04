@@ -262,6 +262,26 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   await page.click('#fps-toggle');
   const fpsHidden = await page.isHidden('#fps-counter'), fpsPref = await page.evaluate(() => localStorage.getItem('swanweb.showfps'));
   check(fpsShown && pct >= 60 && pct <= 140 && fpsHidden && fpsPref === '0', `FPS counter on and off (${fpsText})`);
+  // Touch controls in fullscreen: with Touch on, the touch pad moves over the picture; its A reaches the
+  // game; leaving fullscreen puts it back under the screen.
+  await page.click('#fs-touch');
+  await page.click('#fullscreen');
+  await page.waitForFunction(() => document.querySelector('.screen-wrap .touch-controls.on-screen'), null, { timeout: 5000 }).catch(() => {});
+  const fsOn = await page.evaluate(() => ({ over: !!document.querySelector('.screen-wrap .touch-controls.on-screen'), full: isFull(),
+    exit: !document.getElementById('fs-exit').hidden, pressed: document.getElementById('fs-touch').getAttribute('aria-pressed') }));
+  const fsIdle = JSON.stringify(await colour());
+  const aBtn = page.locator('.screen-wrap .touch-controls [data-bit="8"]');
+  const box = await aBtn.boundingBox();
+  if (box) { await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2); await page.mouse.down(); }
+  let fsHeld = fsIdle;
+  for (let t = 0; t < 20 && fsHeld === fsIdle; t++) { await page.waitForTimeout(100); fsHeld = JSON.stringify(await colour()); }
+  await page.mouse.up();
+  await page.click('#fs-exit');
+  await page.waitForTimeout(300);
+  const fsOff = await page.evaluate(() => ({ back: !document.querySelector('.screen-wrap .touch-controls') && !document.querySelector('.touch-controls.on-screen'), full: isFull() }));
+  await page.click('#fs-touch');
+  check(fsOn.over && fsOn.full && fsOn.exit && fsOn.pressed === 'true' && fsHeld === JSON.stringify(expect.KeyX) && fsOff.back && !fsOff.full,
+    `touch controls over the picture in fullscreen (A: ${fsIdle} -> ${fsHeld}), back under the screen after ✕`);
 
   // 3. The ROM inside a .zip.
   await pick('input-test.zip', makeZip('sub/input-test.wsc', ROM));

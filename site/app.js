@@ -224,7 +224,23 @@ window.addEventListener('dragover',e=>{if(e.dataTransfer?.types?.includes('Files
 window.addEventListener('drop',e=>{const f=e.dataTransfer?.files?.[0];if(!f)return;e.preventDefault();if(!document.querySelector('dialog[open]'))loadRom(f);});
 $('pause').onclick=()=>{paused=!paused;bank=0;$('pause').textContent=paused?'Resume':'Pause';message(paused?'Paused':'Running');};
 $('reset').onclick=async()=>{await core.call('reset');message('Console reset');};
-$('fullscreen').onclick=()=>{if(document.fullscreenElement)document.exitFullscreen();else document.querySelector('.screen-wrap').requestFullscreen?.();};
+/* Fullscreen: the screen area fills the display (where the browser has no element fullscreen, as on the
+ * iPhone, it fills the page instead). With Touch on, the touch controls move over the picture. */
+const screenWrap=document.querySelector('.screen-wrap'),touchPad=document.querySelector('.touch-controls');
+const touchHome={parent:touchPad.parentNode,next:touchPad.nextSibling};
+const isFull=()=>!!document.fullscreenElement||screenWrap.classList.contains('pseudo-full');
+function placeTouch(){const on=isFull()&&pref('fstouch','0')==='1';touchPad.classList.toggle('on-screen',on);
+ if(on&&touchPad.parentNode!==screenWrap)screenWrap.append(touchPad);else if(!on&&touchPad.parentNode===screenWrap)touchHome.parent.insertBefore(touchPad,touchHome.next);
+ $('fs-exit').hidden=!isFull();$('fs-touch').setAttribute('aria-pressed',String(pref('fstouch','0')==='1'));fitCanvas();}
+function leaveFull(){if(document.fullscreenElement)document.exitFullscreen?.();screenWrap.classList.remove('pseudo-full');document.body.style.overflow='';placeTouch();}
+async function enterFull(){try{if(!screenWrap.requestFullscreen)throw Error('no fullscreen');await screenWrap.requestFullscreen({navigationUI:'hide'});}
+ catch{screenWrap.classList.add('pseudo-full');document.body.style.overflow='hidden';}placeTouch();}
+$('fullscreen').onclick=e=>{e.currentTarget.blur();isFull()?leaveFull():enterFull();};
+$('fs-exit').onclick=leaveFull;
+$('fs-touch').onclick=e=>{savePref('fstouch',pref('fstouch','0')==='1'?'0':'1');e.currentTarget.blur();placeTouch();};
+document.addEventListener('fullscreenchange',placeTouch);
+window.addEventListener('keydown',e=>{if(e.code==='Escape'&&screenWrap.classList.contains('pseudo-full')&&!document.querySelector('dialog[open]'))leaveFull();});
+$('fs-touch').setAttribute('aria-pressed',String(pref('fstouch','0')==='1'));
 $('sound').onclick=toggleSound;$('volume').oninput=e=>{volume=Number(e.target.value)/100;if(audioGain)audioGain.gain.value=volume;};
 $('export-save').onclick=async()=>{const b=await core.call('getSave');download(fitSave(b,info.chipSize)||b,stem()+'.sav');};// at the real chip's size
 $('import-save').onchange=async e=>{const f=e.target.files[0];if(f&&romLoaded){const b=new Uint8Array(await f.arrayBuffer()),fit=fitSave(b,info.saveSize);if(fit&&await core.call('setSave',{bytes:fit})){message(fit.length===b.length?'SRAM imported':`SRAM imported (${kb(b.length)} → ${kb(fit.length)})`);await persistRam();}else message(`SRAM size mismatch: ${kb(b.length)}, expected ${kb(info.saveSize)}${info.chipSize&&info.chipSize!==info.saveSize?` or ${kb(info.chipSize)}`:''}`);}e.target.value='';};
@@ -301,7 +317,7 @@ const SCREEN_OPTS={mesen:{lcd:['mesen_ws_lcd_adjust_colors','0'],blend:['mesen_w
 function applyScreen(){const o=SCREEN_OPTS[coreName];for(const k of ['lcd','blend']){const box=$('opt-'+k);box.disabled=!o;box.checked=!!o&&pref(`${k}.${coreName}`,o[k][1])==='1';if(o&&core)setOption(o[k][0],box.checked?'enabled':'disabled');}
  $('opt-screen-note').hidden=!!o;$('opt-integer').checked=pref('integer','0')==='1';fitCanvas();}
 function fitCanvas(){const w=canvas.width,h=canvas.height;if(pref('integer','0')!=='1'||!w||!h){canvas.style.width=canvas.style.height='';return;}
- const wrap=canvas.parentElement,full=!!document.fullscreenElement,aw=wrap.clientWidth-(full?0:16),ah=full?wrap.clientHeight:Math.min(window.innerHeight*.7,canvas.classList.contains('portrait')?560:9999);
+ const wrap=canvas.parentElement,full=isFull(),aw=wrap.clientWidth-(full?0:16),ah=full?wrap.clientHeight:Math.min(window.innerHeight*.7,canvas.classList.contains('portrait')?560:9999);
  const s=Math.max(1,Math.floor(Math.min(aw/w,ah/h)));canvas.style.width=`${w*s}px`;canvas.style.height=`${h*s}px`;}
 window.addEventListener('resize',fitCanvas);document.addEventListener('fullscreenchange',fitCanvas);
 function applyOptions(){$('opt-patches').checked=pref('patches','1')==='1';applyScreen();if(!core)return;const on=pref('60hz','1')==='1';$('opt-60hz').checked=on;setOption('wswan_60hz_mode',on?'enabled':'disabled');}
