@@ -173,7 +173,11 @@ auto postBoot() -> void {
 /* Screen options: ares imitates the WonderSwan LCD with two settings of its PPU screen, on by
  * default in ares - colour emulation (the LCD's colour response) and interframe blending (each
  * frame mixed with the previous one, as the slow LCD did). Kept here and applied after each load. */
-namespace { bool colorEmulation = true, interframeBlending = true; }
+namespace { bool colorEmulation = true, interframeBlending = true;
+// A .wsc file runs on the WonderSwan Color even if its header says otherwise (as Mesen does): some
+// Color-only games, such as Judgement Silversword, do not set the Color flag. Set by the page
+// (option bridge_content_ext = "wsc").
+bool contentIsWsc = false; }
 static void applyScreenOptions() {
   if(!loaded) return;
   if(auto s = host.root->find<Node::Setting::Boolean>("PPU/Screen/Color Emulation")) s->setValue(colorEmulation);
@@ -199,6 +203,7 @@ int ws_load(const void* data, size_t size) {
   bool color = false;
   host.gamePak = makeGamePak((const u8*)data, size, color);
   if(!host.gamePak) return 0;
+  color = color || contentIsWsc;
   host.systemPak = std::make_shared<vfs::directory>();  // no boot ROM: the cartridge starts directly
   ares::WonderSwan::option("Pixel Accuracy", "false");
   if(!ares::WonderSwan::load(host.root, color ? "[Bandai] WonderSwan Color" : "[Bandai] WonderSwan")) return 0;
@@ -295,6 +300,7 @@ int ws_set_option(const char* key, const char* value) {
   bool on = value && !strcmp(value, "enabled");
   if(!strcmp(key, "ares_color_emulation")) { colorEmulation = on; applyScreenOptions(); return 1; }
   if(!strcmp(key, "ares_interframe_blending")) { interframeBlending = on; applyScreenOptions(); return 1; }
+  if(!strcmp(key, "bridge_content_ext")) { contentIsWsc = value && !strcmp(value, "wsc"); return 1; }
   if(!strcmp(key, "ares_pixel_accuracy")) {
     ares::WonderSwan::option("Pixel Accuracy", value && !strcmp(value, "enabled") ? "true" : "false");
     return 1;

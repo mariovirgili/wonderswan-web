@@ -205,7 +205,9 @@ async function loadRom(file){if(!file||!core||coreBusy)return;showNotice(null);i
 /* Run a ROM (already patched) on the current core and restore its battery save. */
 async function startRom(bytes,name,note){await persistRam();if(romLoaded)await core.call('unload');romLoaded=false;saveKey='';enabled(false);clearInput();
  romKey=await digest(bytes);romName=name;current={bytes,name,note};const system=systemOf(name);
- await core.call('setOption',{key:'bridge_content_ext',value:system==='ws'?'':system});const r=await core.call('load',{rom:bytes});if(!r.ok)throw Error('Core rejected the ROM');
+ // A .wsc file runs on the WonderSwan Color even when its header does not say so (Mesen's rule; some
+ // Color-only games, e.g. Judgement Silversword, leave the flag unset). Beetle always emulates the Color.
+ await core.call('setOption',{key:'bridge_content_ext',value:system!=='ws'?system:/\.wsc$/i.test(name)?'wsc':''});const r=await core.call('load',{rom:bytes});if(!r.ok)throw Error('Core rejected the ROM');
  info={width:r.width,height:r.height,fps:r.fps,rate:r.rate,saveSize:r.saveSize,system};lastVideo=null;msPerFrame=0;romLoaded=true;
  info.chipSize=system==='ws'?chipSize(bytes):0;saveKey=romKey;let saved=await retrieve(romKey),restored='';
  if(saved&&info.saveSize){const fit=fitSave(saved,info.saveSize);

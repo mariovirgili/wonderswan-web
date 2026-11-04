@@ -89,6 +89,23 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
   api.reset(); frames(5);
   check(api.width() === 224, 'reset');
   api.unload();
+  {
+    // A Color-only game whose header lacks the Color flag (as Judgement Silversword): as a .wsc file
+    // (option bridge_content_ext = "wsc") it runs on the WonderSwan Color, otherwise on the mono model.
+    const setOpt = c('ws_set_option', 'number', ['string', 'string']);
+    const rom = makeRom(0x01); rom[0x1FFF7] = 0;
+    let sum = 0; for (let i = 0; i < 0x1FFFE; i++) sum = (sum + rom[i]) & 0xFFFF; rom[0x1FFFE] = sum & 255; rom[0x1FFFF] = sum >> 8;
+    const upColour = ext => {
+      setOpt('bridge_content_ext', ext);
+      const p = m._malloc(rom.length); m.HEAPU8.set(rom, p); const ok = api.load(p, rom.length); m._free(p);
+      frames(40); api.input(1 << 4); frames(6); const px = pixel(); api.input(0); api.unload(); return ok ? px : null;
+    };
+    const asWsc = upColour('wsc'), asWs = upColour('');
+    setOpt('bridge_content_ext', '');
+    const red = px => !!px && px[0] > 0 && px[1] === 0 && px[2] === 0;  // the X-pad colour; the mono model has no colours
+    check(red(asWsc) && !red(asWs),
+      `a .wsc ROM without the Color flag runs on the WonderSwan Color (${asWsc}; as .ws: ${asWs})`);
+  }
   if (NAME === 'mesen') {
     // Mesen also runs other systems, chosen by the file extension the bridge gives the ROM
     // (option bridge_content_ext): tiny homebrew ROMs boot at each system's screen size.

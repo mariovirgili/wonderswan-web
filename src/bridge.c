@@ -21,7 +21,8 @@ static uint8_t *loaded_rom;
 /* Cores that read content from a file and want system / save folders (Mesen 2, built with
  * -DBRIDGE_CONTENT_FILE and Emscripten's in-memory file system) get the ROM written to a file.
  * The file name ends in .ws or .wsc, from the colour flag in the ROM footer, unless the page set the
- * option "bridge_content_ext" (Mesen picks the system from the extension). */
+ * option "bridge_content_ext" (Mesen picks the system from the extension; "wsc" makes a ROM whose
+ * header lacks the Color flag run on the WonderSwan Color). */
 #ifdef BRIDGE_CONTENT_FILE
 #include <stdio.h>
 #include <sys/stat.h>
