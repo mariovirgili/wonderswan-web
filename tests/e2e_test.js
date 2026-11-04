@@ -170,6 +170,20 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     const out = [1 << 4, 1 << 6, 1 << 13, 1 << 12, 1 << 8].map(b => { buttons = b; return inputMask(); });
     canvas.width = w; canvas.height = h; buttons = 0; return out; });
   check(JSON.stringify(vert) === JSON.stringify([1 << 11, 1 << 13, 1 << 7, 1 << 6, 1 << 8]), `vertical games: arrows move with the Y pad, W A S D are the X buttons (${vert})`);
+  // Touch pads: two fingers at once. One on the X pad up-right (a diagonal: two directions), one on A;
+  // the first slides to the left without lifting; then both lift.
+  const touch = await page.evaluate(() => {
+    const pad = document.querySelector('.touch-controls .dpad'), a = document.querySelector('.touch-controls [data-bit="8"]');
+    const r = pad.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2, ar = a.getBoundingClientRect();
+    const fire = (el, type, id, x, y) => el.dispatchEvent(new PointerEvent(type, { pointerId: id, clientX: x, clientY: y, bubbles: true, cancelable: true, pointerType: 'touch' }));
+    const out = [];
+    fire(pad, 'pointerdown', 21, cx + r.width * .4, cy - r.height * .4); out.push(buttons);
+    fire(a, 'pointerdown', 22, ar.left + ar.width / 2, ar.top + ar.height / 2); out.push(buttons);
+    fire(pad, 'pointermove', 21, cx - r.width * .45, cy); out.push(buttons);
+    fire(pad, 'pointerup', 21, cx - r.width * .45, cy); fire(a, 'pointerup', 22, 0, 0); out.push(buttons);
+    return out; });
+  check(JSON.stringify(touch) === JSON.stringify([1 << 4 | 1 << 7, 1 << 4 | 1 << 7 | 1 << 8, 1 << 6 | 1 << 8, 0]),
+    `touch pad and A at once, diagonals, sliding the thumb (${touch})`);
   // Remapping: A moves from X to K (keyboard), then back to the defaults.
   await page.click('#remap');
   await page.click('#keys-rows button.bind[data-kind=key][data-action="8"]');

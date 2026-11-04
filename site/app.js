@@ -237,6 +237,7 @@ $('reset').onclick=async()=>{await core.call('reset');message('Console reset');}
  * iPhone, it fills the page instead). With Touch on, the touch controls move over the picture. */
 const screenWrap=document.querySelector('.screen-wrap'),touchPad=document.querySelector('.touch-controls');
 const touchHome={parent:touchPad.parentNode,next:touchPad.nextSibling};
+touchPad.addEventListener('contextmenu',e=>e.preventDefault());// a long press is a held button, not a menu
 const isFull=()=>!!document.fullscreenElement||screenWrap.classList.contains('pseudo-full');
 function placeTouch(){const on=isFull()&&pref('fstouch','0')==='1';touchPad.classList.toggle('on-screen',on);
  if(on&&touchPad.parentNode!==screenWrap)screenWrap.append(touchPad);else if(!on&&touchPad.parentNode===screenWrap)touchHome.parent.insertBefore(touchPad,touchHome.next);
@@ -311,7 +312,25 @@ $('patch-file').onchange=async e=>{const f=e.target.files[0];e.target.value='';i
   const out=SwanPatches.apply(original.bytes,p,{format});const ext=(original.name.match(/\.[^.]+$/)||['.wsc'])[0];
   await startRom(out,`${original.name.replace(/\.[^.]+$/,'')} [${f.name.replace(/\.[^.]+$/,'')}]${ext}`,` · patched with local file ${f.name}`);}
  catch(err){console.warn(err);message(`Patch ${f.name} failed: ${err.message}`);}};
-for(const button of document.querySelectorAll('[data-bit]')){const b=Number(button.dataset.bit);const down=e=>{e.preventDefault();button.setPointerCapture?.(e.pointerId);press(b);button.classList.add('pressed');};const up=e=>{e.preventDefault();release(b);button.classList.remove('pressed');};button.addEventListener('pointerdown',down);button.addEventListener('pointerup',up);button.addEventListener('pointercancel',up);button.addEventListener('lostpointercapture',up);}
+/* Touch pads: each pad is one touch area. The thumb's position from its centre gives up to two
+ * directions (8 ways, with diagonals), and it follows the thumb as it slides, so it never has to be
+ * lifted; both pads and the buttons work at once (one finger each). */
+for(const pad of document.querySelectorAll('.dpad')){
+ const bit={};for(const d of ['up','right','down','left'])bit[d]=Number(pad.querySelector('.'+d).dataset.bit);
+ const SECTORS=[['right'],['right','down'],['down'],['down','left'],['left'],['left','up'],['up'],['up','right']];
+ const fingers=new Map();let held=new Set();
+ const dirsAt=e=>{const r=pad.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+  if(Math.hypot(dx,dy)<Math.min(r.width,r.height)*.14)return [];// the centre: no direction
+  return SECTORS[((Math.round(Math.atan2(dy,dx)/(Math.PI/4))%8)+8)%8];};
+ const update=()=>{const now=new Set([...fingers.values()].flat());
+  for(const d of held)if(!now.has(d)){release(bit[d]);pad.querySelector('.'+d).classList.remove('pressed');}
+  for(const d of now)if(!held.has(d)){press(bit[d]);pad.querySelector('.'+d).classList.add('pressed');}
+  held=now;};
+ pad.addEventListener('pointerdown',e=>{e.preventDefault();try{pad.setPointerCapture(e.pointerId);}catch{}fingers.set(e.pointerId,dirsAt(e));update();});
+ pad.addEventListener('pointermove',e=>{if(!fingers.has(e.pointerId))return;e.preventDefault();fingers.set(e.pointerId,dirsAt(e));update();});
+ const lift=e=>{if(fingers.delete(e.pointerId))update();};
+ for(const t of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(t,lift);}
+for(const button of document.querySelectorAll('[data-bit]')){if(button.closest('.dpad'))continue;const b=Number(button.dataset.bit);const down=e=>{e.preventDefault();try{button.setPointerCapture?.(e.pointerId);}catch{}press(b);button.classList.add('pressed');};const up=e=>{e.preventDefault();release(b);button.classList.remove('pressed');};button.addEventListener('pointerdown',down);button.addEventListener('pointerup',up);button.addEventListener('pointercancel',up);button.addEventListener('lostpointercapture',up);}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){persistRam().catch(console.warn);bank=0;}});
 window.addEventListener('pagehide',()=>{persistRam().catch(()=>{});});
 /* Core options. 60 Hz mode makes the Mednafen core output 60.38 fps (4 of
