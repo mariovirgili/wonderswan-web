@@ -7,7 +7,7 @@
    the cartridge's SRAM or EEPROM, through Mesen's own Emulator::GetMemory().
 2. Y pad: the port maps the WonderSwan's Y-left / Y-right to L / R but leaves Y-up / Y-down
    unmapped. They are mapped to R2 / L2, the buttons the page already uses for them (as with
-   the Mednafen core).
+   the Mednafen core). Vertical games use the same mapping (the port left theirs empty).
 3. Threads: Mesen hands work to background threads (keyboard shortcuts, video decoding and
    rendering) and waits for them. The WebAssembly build has no threads, so there those threads
    are not started and each frame is decoded on the spot, as Mesen already does in its "sync"
@@ -161,6 +161,9 @@ patch('''				setupDefaultMapping(wsCfg.ControllerHorizontal.Keys, 0);
 				// Y pad up / down (web build): R2 / L2, as Y-left / Y-right are L / R.
 				setButton(wsCfg.ControllerHorizontal.Keys.Mapping1.U, 0, RETRO_DEVICE_ID_JOYPAD_R2);
 				setButton(wsCfg.ControllerHorizontal.Keys.Mapping1.D, 0, RETRO_DEVICE_ID_JOYPAD_L2);
+				// Vertical games (web build): Mesen reads a separate mapping, which the port leaves
+				// empty (no button worked); the same one is used, as the page turns the pads itself.
+				wsCfg.ControllerVertical.Keys = wsCfg.ControllerHorizontal.Keys;
 ''')
 # The frame goes through the filter with the borders cropped as set above (Mesen applies no crop to
 # the WonderSwan, Game Boy and GBA).

@@ -102,7 +102,7 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     };
     const asWsc = upColour('wsc'), asWs = upColour('');
     setOpt('bridge_content_ext', '');
-    const red = px => !!px && px[0] > 0 && px[1] === 0 && px[2] === 0;  // the X-pad colour; the mono model has no colours
+    const red = px => !!px && px[0] > px[1] && px[0] > px[2];  // the X-pad colour (red; ares tints it like the LCD); the mono model is grey
     check(red(asWsc) && !red(asWs),
       `a .wsc ROM without the Color flag runs on the WonderSwan Color (${asWsc}; as .ws: ${asWs})`);
   }

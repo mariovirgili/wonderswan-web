@@ -73,6 +73,10 @@ leave your browser.
 | Quick save / quick load | F5 / F7 | |
 | Quick-save slot | 1 / 2 / 3 | |
 
+In vertical games (the WonderSwan held upright: the Y pad moves, the X pad buttons act) the two pads swap while the
+picture is upright, each turned with the screen: the arrows move, W / A / S / D are the X1–X4 buttons; the same on a
+gamepad and on the touch pads.
+
 These are the defaults. **Change keys and gamepad buttons** (under the list of controls) lets you press a new key or
 gamepad button for each WonderSwan button; **Reset to defaults** puts them back. F5, F7, 1–3, Esc and Tab stay reserved.
 

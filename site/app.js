@@ -47,7 +47,14 @@ function release(b){buttons&=~(1<<b);}
 function inputMask(){let m=buttons|gamepadBits;for(let i=0;i<32;i++)if(latch[i])m|=1<<i;
  // Other systems: Y pad ↑ / ↓ (W / S) are the X and Y buttons; ← / → (A / D) stay L and R.
  if(info.system&&info.system!=='ws')m=(m&~(1<<13|1<<12))|(m>>13&1)<<9|(m>>12&1)<<1;
+ else if(canvas.height>canvas.width)m=verticalMask(m);
  return m>>>0;}
+/* Vertical games: the WonderSwan is held upright, the Y pad is the direction pad and the X pad the
+ * action buttons. While the picture is vertical the page's two pads swap, each turned to match the
+ * screen: the arrows (X pad keys, left stick, touch X pad) move with the Y pad, and the Y pad keys
+ * (W A S D, touch Y pad) press the X pad buttons. Same turn as Beetle's own rotated key map. */
+const VERTICAL_FROM=[[4,11],[7,12],[5,10],[6,13],[13,7],[11,5],[12,6],[10,4]];// [page bit, WonderSwan bit]
+function verticalMask(m){let out=m&~(0xF0|0x3C00);for(const [from,to] of VERTICAL_FROM)if(m>>from&1)out|=1<<to;return out;}
 function tickLatch(){for(let i=0;i<32;i++)if(latch[i])latch[i]--;}
 function clearInput(){buttons=0;latch.fill(0);}
 function enabled(v){for(const id of ['pause','reset','sound','export-save','export-state','qsave','qload','patch-file','ff'])$(id).disabled=!v;$('patch-file-label').classList.toggle('disabled',!v);}
@@ -260,7 +267,7 @@ const PAD_NAMES=['A / Cross','B / Circle','X / Square','Y / Triangle','LB / L1',
 const padName=i=>PAD_NAMES[i]||`Button ${i}`;
 const keysOf=a=>(keyBinds[a]||[]).filter((c,i,l)=>!(c==='ShiftRight'&&l.includes('ShiftLeft'))).map(keyName).join(' / ')||'—';
 function renderHelp(){const k=a=>keysOf(a),g=a=>(padBinds[a]||[]).map(padName).join(' / ')||'—',el=$('controls-help');el.replaceChildren();
- const rows=[['X pad',[4,7,5,6].map(k).join(' ')],['Y pad',[13,11,12,10].map(k).join(' ')],['Buttons',`A = ${k(8)} · B = ${k(0)}`],['Start',`${k(3)} · Rotate: ${k(2)}`],['Fast forward',`hold ${k('ff')}`],['Quick save / load','F5 / F7 · slot: 1 / 2 / 3'],
+ const rows=[['X pad',[4,7,5,6].map(k).join(' ')],['Y pad',[13,11,12,10].map(k).join(' ')],['Buttons',`A = ${k(8)} · B = ${k(0)}`],['Start',`${k(3)} · Rotate: ${k(2)}`],['Fast forward',`hold ${k('ff')}`],['Vertical games','the pads swap, turned with the screen: the X pad keys move (with the Y pad), the Y pad keys are the X1–X4 buttons'],['Quick save / load','F5 / F7 · slot: 1 / 2 / 3'],
   ['Gamepad',`X pad: left stick or ${[4,7,5,6].map(g).join(', ')} · A: ${g(8)} · B: ${g(0)} · Start: ${g(3)} · Rotate: ${g(2)} · Y pad: ${[13,11,12,10].map(g).join(', ')} · fast forward: ${g('ff')}`]];
  rows.forEach(([t,v],i)=>{const b=document.createElement('b');b.textContent=t+':';el.append(b,' '+v);if(i<rows.length-1)el.append(document.createElement('br'));});}
 let capture=null;// {kind:'key'|'pad', action, stop}

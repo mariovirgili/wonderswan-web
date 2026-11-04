@@ -165,6 +165,11 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     await page.waitForTimeout(150);
   }
   check(keysOk === 11, `all 11 buttons reach the core (${keysOk}/11)`);
+  // Vertical games: with the picture upright the pads swap (screen up -> Y right, W -> X right, ...).
+  const vert = await page.evaluate(() => { const w = canvas.width, h = canvas.height; canvas.width = 144; canvas.height = 224;
+    const out = [1 << 4, 1 << 6, 1 << 13, 1 << 12, 1 << 8].map(b => { buttons = b; return inputMask(); });
+    canvas.width = w; canvas.height = h; buttons = 0; return out; });
+  check(JSON.stringify(vert) === JSON.stringify([1 << 11, 1 << 13, 1 << 7, 1 << 6, 1 << 8]), `vertical games: arrows move with the Y pad, W A S D are the X buttons (${vert})`);
   // Remapping: A moves from X to K (keyboard), then back to the defaults.
   await page.click('#remap');
   await page.click('#keys-rows button.bind[data-kind=key][data-action="8"]');
