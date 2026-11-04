@@ -314,22 +314,41 @@ $('patch-file').onchange=async e=>{const f=e.target.files[0];e.target.value='';i
  catch(err){console.warn(err);message(`Patch ${f.name} failed: ${err.message}`);}};
 /* Touch pads: each pad is one touch area. The thumb's position from its centre gives up to two
  * directions (8 ways, with diagonals), and it follows the thumb as it slides, so it never has to be
- * lifted; both pads and the buttons work at once (one finger each). */
+ * lifted; both pads and the buttons work at once (one finger each).
+ * Analog stick (option, left pad): the centre is where the thumb lands; pushing gives the direction,
+ * which changes only once the thumb is clearly in the next 45° sector (no flicker at the edges); past
+ * the rim the centre follows the thumb, so turning back is immediate. */
+const SECTORS=[['right'],['right','down'],['down'],['down','left'],['left'],['left','up'],['up'],['up','right']];
+const stickPad=document.querySelector('.touch-controls .dpad');// the left pad: X pad, the moving one in vertical games
+let stickOn=pref('stick','0')==='1';
+function applyStick(){stickPad.classList.toggle('stick-mode',stickOn);$('opt-stick').checked=stickOn;}
 for(const pad of document.querySelectorAll('.dpad')){
  const bit={};for(const d of ['up','right','down','left'])bit[d]=Number(pad.querySelector('.'+d).dataset.bit);
- const SECTORS=[['right'],['right','down'],['down'],['down','left'],['left'],['left','up'],['up'],['up','right']];
+ const knob=pad===stickPad?Object.assign(document.createElement('span'),{className:'knob'}):null;if(knob)pad.append(knob);
  const fingers=new Map();let held=new Set();
- const dirsAt=e=>{const r=pad.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
+ const padDirs=e=>{const r=pad.getBoundingClientRect(),dx=e.clientX-(r.left+r.width/2),dy=e.clientY-(r.top+r.height/2);
   if(Math.hypot(dx,dy)<Math.min(r.width,r.height)*.14)return [];// the centre: no direction
   return SECTORS[((Math.round(Math.atan2(dy,dx)/(Math.PI/4))%8)+8)%8];};
- const update=()=>{const now=new Set([...fingers.values()].flat());
+ const stickDirs=(f,e)=>{const r=pad.getBoundingClientRect(),R=Math.min(r.width,r.height)*.38;
+  let dx=e.clientX-f.ox,dy=e.clientY-f.oy,d=Math.hypot(dx,dy);
+  if(d>R){f.ox=e.clientX-dx/d*R;f.oy=e.clientY-dy/d*R;dx=dx/d*R;dy=dy/d*R;d=R;}// the centre follows past the rim
+  knob.style.setProperty('--kx',`${dx}px`);knob.style.setProperty('--ky',`${dy}px`);
+  if(d<Math.max(6,R*.22)){f.sector=-1;return [];}
+  const a=Math.atan2(dy,dx)/(Math.PI/4);// in sectors
+  if(f.sector>=0){let diff=Math.abs(a-f.sector)%8;if(diff>4)diff=8-diff;if(diff<.5+.15)return SECTORS[f.sector];}
+  f.sector=((Math.round(a)%8)+8)%8;return SECTORS[f.sector];};
+ const update=()=>{const now=new Set([...fingers.values()].flatMap(f=>f.dirs));
   for(const d of held)if(!now.has(d)){release(bit[d]);pad.querySelector('.'+d).classList.remove('pressed');}
   for(const d of now)if(!held.has(d)){press(bit[d]);pad.querySelector('.'+d).classList.add('pressed');}
   held=now;};
- pad.addEventListener('pointerdown',e=>{e.preventDefault();try{pad.setPointerCapture(e.pointerId);}catch{}fingers.set(e.pointerId,dirsAt(e));update();});
- pad.addEventListener('pointermove',e=>{if(!fingers.has(e.pointerId))return;e.preventDefault();fingers.set(e.pointerId,dirsAt(e));update();});
- const lift=e=>{if(fingers.delete(e.pointerId))update();};
+ pad.addEventListener('pointerdown',e=>{e.preventDefault();try{pad.setPointerCapture(e.pointerId);}catch{}
+  const f={ox:e.clientX,oy:e.clientY,sector:-1,stick:pad===stickPad&&stickOn,dirs:[]};f.dirs=f.stick?stickDirs(f,e):padDirs(e);
+  fingers.set(e.pointerId,f);pad.classList.toggle('stick-active',f.stick);update();});
+ pad.addEventListener('pointermove',e=>{const f=fingers.get(e.pointerId);if(!f)return;e.preventDefault();f.dirs=f.stick?stickDirs(f,e):padDirs(e);update();});
+ const lift=e=>{if(!fingers.delete(e.pointerId))return;if(knob&&!fingers.size){knob.style.setProperty('--kx','0px');knob.style.setProperty('--ky','0px');pad.classList.remove('stick-active');}update();};
  for(const t of ['pointerup','pointercancel','lostpointercapture'])pad.addEventListener(t,lift);}
+$('opt-stick').onchange=e=>{stickOn=e.target.checked;savePref('stick',stickOn?'1':'0');applyStick();message(stickOn?'Analog stick on for the left touch pad':'Left touch pad: four buttons');};
+applyStick();
 for(const button of document.querySelectorAll('[data-bit]')){if(button.closest('.dpad'))continue;const b=Number(button.dataset.bit);const down=e=>{e.preventDefault();try{button.setPointerCapture?.(e.pointerId);}catch{}press(b);button.classList.add('pressed');};const up=e=>{e.preventDefault();release(b);button.classList.remove('pressed');};button.addEventListener('pointerdown',down);button.addEventListener('pointerup',up);button.addEventListener('pointercancel',up);button.addEventListener('lostpointercapture',up);}
 document.addEventListener('visibilitychange',()=>{if(document.hidden){persistRam().catch(console.warn);bank=0;}});
 window.addEventListener('pagehide',()=>{persistRam().catch(()=>{});});

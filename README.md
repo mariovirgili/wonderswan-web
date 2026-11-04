@@ -53,6 +53,8 @@ leave your browser.
 - **Touch controls in fullscreen.** With **Touch** on, **Fullscreen** puts the touch controls over the picture (at the
   sides in landscape, below it in portrait), with ✕ to leave; where the browser has no fullscreen (iPhone), the screen
   fills the page instead.
+- **Analog stick option** (Options → Touch) for the left touch pad: the centre is where the thumb lands, directions
+  (with diagonals) change only once the thumb is clearly in the next one, and turning back is immediate.
 
 ## Using it
 

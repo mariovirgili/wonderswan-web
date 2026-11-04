@@ -184,6 +184,23 @@ const check = (ok, msg) => { console.log(`${ok ? 'ok' : 'FAIL'} - ${msg}`); if (
     return out; });
   check(JSON.stringify(touch) === JSON.stringify([1 << 4 | 1 << 7, 1 << 4 | 1 << 7 | 1 << 8, 1 << 6 | 1 << 8, 0]),
     `touch pad and A at once, diagonals, sliding the thumb (${touch})`);
+  // Analog stick option (left pad): direction from where the thumb lands; a little past the 22.5° edge
+  // keeps the direction; a diagonal; back to the left at once; lifted: nothing.
+  await page.check('#opt-stick');
+  const stick = await page.evaluate(() => {
+    const pad = document.querySelector('.touch-controls .dpad'), r = pad.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
+    const fire = (type, dx, dy) => pad.dispatchEvent(new PointerEvent(type, { pointerId: 31, clientX: x + dx, clientY: y + dy, bubbles: true, cancelable: true, pointerType: 'touch' }));
+    const at = deg => [30 * Math.cos(deg * Math.PI / 180), 30 * Math.sin(deg * Math.PI / 180)];
+    const out = [];
+    fire('pointerdown', 0, 0); out.push(buttons);
+    fire('pointermove', ...at(0)); out.push(buttons);
+    fire('pointermove', ...at(27)); out.push(buttons);   // just past the edge: still right
+    fire('pointermove', ...at(45)); out.push(buttons);   // right + down
+    fire('pointermove', -200, 0); out.push(buttons);     // far left: left at once
+    fire('pointerup', -200, 0); out.push(buttons);
+    return { out, mode: pad.classList.contains('stick-mode') }; });
+  await page.uncheck('#opt-stick');
+  check(stick.mode && JSON.stringify(stick.out) === JSON.stringify([0, 1 << 7, 1 << 7, 1 << 7 | 1 << 5, 1 << 6, 0]), `analog stick for the left pad (${stick.out})`);
   // Remapping: A moves from X to K (keyboard), then back to the defaults.
   await page.click('#remap');
   await page.click('#keys-rows button.bind[data-kind=key][data-action="8"]');
