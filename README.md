@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/logo.png" alt="WonderSwan Translation Project" width="700"></p>
+
 # WonderSwan AI/MTL Tester
 
 A WonderSwan / WonderSwan Color emulator that runs in the browser, made for **playing and testing AI and machine
